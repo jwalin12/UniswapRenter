@@ -73,8 +73,8 @@ contract NonfungiblePositionManager is
     }
 
     struct RentInfo {
-        address originalOwner;
-        address renter;
+        address payable originalOwner;
+        address payable renter;
         uint256 price;
         uint256 expiryDate;
     }
@@ -84,7 +84,7 @@ contract NonfungiblePositionManager is
 //TODO: consolidate mappings into structs
 //TODO: update mappings in functions
 //TODO: figure out how to 
-    mapping(uint256 => RentInfo) private itemIdToRentInfo;
+    mapping(uint256 => RentInfo) public itemIdToRentInfo;
     mapping(address => uint256) private renterToCashFlow;
     mapping(uint256 => TokenAddresses) private itemIdToTokenAddrs;
     mapping(uint256 => address) private itemIdToPoolAddrs;
@@ -294,6 +294,7 @@ contract NonfungiblePositionManager is
         require(block.timestamp < rentInfo.expiryDate, "Lease has expired!");
         //update who the renter is
         itemIdToRentInfo[tokenId].renter = msg.sender;
+        itemIdToRentInfo[tokenId].originalOwner.transfer(msg.value);
         payoutNFT(tokenId, rentInfo.originalOwner);
     }
 
