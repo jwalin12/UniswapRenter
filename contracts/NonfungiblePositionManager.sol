@@ -88,7 +88,7 @@ contract NonfungiblePositionManager is
     mapping(address => uint256) private renterToCashFlow;
     mapping(uint256 => TokenAddresses) private itemIdToTokenAddrs;
     mapping(uint256 => address) private itemIdToPoolAddrs;
-
+    uint256[] public itemIdsForRent;
 
     /// @dev IDs of pools assigned by this contract
     mapping(address => uint80) private _poolIds;
@@ -222,6 +222,14 @@ contract NonfungiblePositionManager is
         return poolId;
     }
 
+
+    function getAll() public view returns (RentInfo[] memory){
+    RentInfo[] memory ret = new RentInfo[](addressRegistryCount);
+    for (uint i = 0; i < addressRegistryCount; i++) {
+        ret[i] = tokenIdTo[i];
+    }
+    return ret;
+
     function getTokensForPositionFromUniswap(uint256 tokenId) private {
         (,
             ,
@@ -246,6 +254,7 @@ contract NonfungiblePositionManager is
         UniswapNFTManager.safeTransferFrom(msg.sender, address(this), tokenId);
         _positions[tokenId] = getPositionFromUniswap(tokenId);
         _positions[tokenId].poolId = getPoolIdForPositionFromUniswap(tokenId, poolAddr);
+        itemIdsForRent.push(tokenId);
         getTokensForPositionFromUniswap(tokenId); //updates mapping 
 
         itemIdToRentInfo[tokenId] = RentInfo({
@@ -254,8 +263,6 @@ contract NonfungiblePositionManager is
             expiryDate: expiryDate,
             renter: address(0)
         });
-        
-       
     }
 
     //Owner removes NFT from rent availability
@@ -263,6 +270,7 @@ contract NonfungiblePositionManager is
     function removeNFTForRent(uint256 tokenId) external {
         RentInfo memory rentInfo = itemIdToRentInfo[tokenId];
         require(rentInfo.renter == address(0),"someone is renting right now!");
+
         UniswapNFTManager.safeTransferFrom(address(this),rentInfo.originalOwner, tokenId);
         delete(itemIdToRentInfo[tokenId]);
     }
@@ -294,7 +302,7 @@ contract NonfungiblePositionManager is
         require(block.timestamp < rentInfo.expiryDate, "Lease has expired!");
         //update who the renter is
         itemIdToRentInfo[tokenId].renter = msg.sender;
-        itemIdToRentInfo[tokenId].originalOwner.transfer(msg.value);
+        itemIdToRentInfo[tokenId].originalOwner.transfer( itemIdToRentInfo[tokenId].price);
         payoutNFT(tokenId, rentInfo.originalOwner);
     }
 
