@@ -55,13 +55,39 @@ contract NonfungiblePositionManager is
         uint128 tokensOwed1;
     }
 
-    mapping(uint256 => address) private itemIdToOriginalOwner;
-    mapping(uint256 => address) private itemIdToRenter;
+    //struct for what uniswap nonFungible PositionManager returns 
+    struct PositionInfo {
+        uint96 nonce;
+            address operator;
+            address token0;
+            address token1;
+            uint24 fee;
+            int24 tickLower;
+            int24 tickUpper;
+            uint128 liquidity;
+            uint256 feeGrowthInside0LastX128;
+            uint256 feeGrowthInside1LastX128;
+            uint128 tokensOwed0;
+            uint128 tokensOwed1;
+
+    }
+
+    struct RentInfo {
+        address originalOwner;
+        address renter;
+        uint256 price;
+        uint256 expiryDate;
+    }
+
+    INonfungiblePositionManager public immutable UniswapNFTManager =  INonfungiblePositionManager(0xC36442b4a4522E871399CD717aBDD847Ab11FE88);
+
+//TODO: consolidate mappings into structs
+//TODO: update mappings in functions
+//TODO: figure out how to 
+    mapping(uint256 => RentInfo) private itemIdToRentInfo;
     mapping(address => uint256) private renterToCashFlow;
-    mapping(uint256 => uint256) private itemIdToExpiryDate;
-    mapping(uint256 => uint256) private itemIdToPrice;
     mapping(uint256 => TokenAddresses) private itemIdToTokenAddrs;
-    mapping(uint256 => address) private itemIdToNFTAddrs;
+    mapping(uint256 => address) private itemIdToPoolAddrs;
 
 
     /// @dev IDs of pools assigned by this contract
@@ -143,16 +169,11 @@ contract NonfungiblePositionManager is
 
     }
 
-
-    //Owner places NFT inside contract until they remove it or get an agreement
-    function putUpNFTForRent(uint256 tokenId, uint256 price,uint256 expiryDate, address owner, address nftAddress) external {
-        itemIdToOriginalOwner[tokenId] = owner;
-        itemIdToPrice[tokenId] = price;
-        itemIdToExpiryDate[tokenId] = expiryDate;
-        ( uint96 nonce,
-            address operator,
-            address token0,
-            address token1,
+    function getPositionFromUniswap(uint256 tokenId) private returns (Position memory) {
+       (uint96 nonce,
+            ,
+            ,
+            ,
             uint24 fee,
             int24 tickLower,
             int24 tickUpper,
@@ -160,19 +181,95 @@ contract NonfungiblePositionManager is
             uint256 feeGrowthInside0LastX128,
             uint256 feeGrowthInside1LastX128,
             uint128 tokensOwed0,
-            uint128 tokensOwed1)= positions(tokenId);
-        itemIdToNFTAddrs[tokenId] = nftAddress;
-        itemIdToTokenAddrs[tokenId] = TokenAddresses({token0Addr: token0, token1Addr: token1}); //the two token addresses returned from calling positions 
-        ERC721(itemIdToNFTAddrs[tokenId]).safeTransferFrom(owner, address(this), tokenId);
+            uint128 tokensOwed1)
+         = UniswapNFTManager.positions(tokenId);
+        return Position({
+        nonce: nonce,
+        operator: address(this),
+        poolId: 0, 
+        tickLower: tickLower,
+        tickUpper: tickUpper, 
+        liquidity: liquidity, 
+        feeGrowthInside0LastX128: feeGrowthInside0LastX128,
+        feeGrowthInside1LastX128: feeGrowthInside1LastX128,
+        tokensOwed0: tokensOwed0,
+        tokensOwed1: tokensOwed1 
+        });
+
+   
+
+    }
+
+    function getPoolIdForPositionFromUniswap(uint256 tokenId, address poolAddr) private returns (uint80) {
+        (,
+            ,
+            address token0,
+            address token1,
+            uint24 fee,
+            ,
+            ,
+            ,
+            ,
+            ,
+            ,
+            )
+         = UniswapNFTManager.positions(tokenId);
+        uint80 poolId =
+            cachePoolKey(
+                poolAddr,
+                PoolAddress.PoolKey({token0: token0, token1: token1, fee: fee})
+            );
+        return poolId;
+    }
+
+    function getTokensForPositionFromUniswap(uint256 tokenId) private {
+        (,
+            ,
+            address token0,
+            address token1,
+            uint256 fee,
+            ,
+            ,
+            ,
+            ,
+            ,
+            ,
+            )
+         = UniswapNFTManager.positions(tokenId);
+
+         itemIdToTokenAddrs[tokenId] = TokenAddresses({ token0Addr: token0, token1Addr: token1 });
+
+    }
+    //Owner places NFT inside contract until they remove it or get an agreement
+    //Added by Jwalin
+    function putUpNFTForRent(uint256 tokenId, uint256 price,uint256 expiryDate, address poolAddr) external {
+        UniswapNFTManager.safeTransferFrom(msg.sender, address(this), tokenId);
+        _positions[tokenId] = getPositionFromUniswap(tokenId);
+        _positions[tokenId].poolId = getPoolIdForPositionFromUniswap(tokenId, poolAddr);
+        getTokensForPositionFromUniswap(tokenId); //updates mapping 
+
+        itemIdToRentInfo[tokenId] = RentInfo({
+            originalOwner: msg.sender,
+            price: price,
+            expiryDate: expiryDate,
+            renter: address(0)
+        });
+        
+       
     }
 
     //Owner removes NFT from rent availability
+    //Added by Jwalin
     function removeNFTForRent(uint256 tokenId) external {
-        ERC721(itemIdToNFTAddrs[tokenId]).safeTransferFrom(address(this), itemIdToOriginalOwner[tokenId], tokenId);
+        RentInfo memory rentInfo = itemIdToRentInfo[tokenId];
+        require(rentInfo.renter == address(0),"someone is renting right now!");
+        UniswapNFTManager.safeTransferFrom(address(this),rentInfo.originalOwner, tokenId);
+        delete(itemIdToRentInfo[tokenId]);
     }
 
 
     //utility function that pays out NFT to receiver.
+    //Added by Jwalin
     function payoutNFT(uint256 tokenId, address payoutReceiver) private {
          //call collect to get amounts of different tokens and send back to owner        
         (uint256 token0amt, uint256 token1amt) = this.collect(CollectParams({
@@ -189,30 +286,38 @@ contract NonfungiblePositionManager is
     }
 
     //Rents NFT to person who provided money
-    function rentNFT(uint256 tokenId, uint256 price) external payable {
+    //Added by Jwalin
+    function rentNFT(uint256 tokenId) external payable {
         //check if price is enough
-        require(msg.value >= price, "Insufficient funds");
+        RentInfo memory rentInfo = itemIdToRentInfo[tokenId];
+        require(msg.value >= rentInfo.price, "Insufficient funds");
+        require(block.timestamp < rentInfo.expiryDate, "Lease has expired!");
         //update who the renter is
-        itemIdToRenter[tokenId] = msg.sender;
-        payoutNFT(tokenId, itemIdToOriginalOwner[tokenId]);
+        itemIdToRentInfo[tokenId].renter = msg.sender;
+        payoutNFT(tokenId, rentInfo.originalOwner);
     }
+
     //Withdraw Cashflow from rented NFT
+    // Added by Jwalin
     function withdrawCash(uint256 tokenId) external {
         //needs to check that time to rent has not passed
-        require(block.timestamp <= itemIdToExpiryDate[tokenId], "the lease has expired!");
-        require(msg.sender == itemIdToRenter[tokenId], "you are not renting this asset!");
+        RentInfo memory rentInfo = itemIdToRentInfo[tokenId];
+        require(block.timestamp < rentInfo.expiryDate, "the lease has expired!");
+        require(msg.sender == rentInfo.renter, "you are not renting this asset!");
         //call collect and send back to renter
-        payoutNFT(tokenId, itemIdToRenter[tokenId]);
+        payoutNFT(tokenId, rentInfo.renter);
     }
 
     //returns NFT to original owner once original rent period is up
+    // Added by Jwalin
     function returnNFTToOwner(uint256 tokenId) external {
         //check that rent period is up
-        require(block.timestamp >= itemIdToExpiryDate[tokenId], "the lease has not expired yet!");
-        require(msg.sender == itemIdToOriginalOwner[tokenId], "you are not the original owner for this asset!");
+        RentInfo memory rentInfo = itemIdToRentInfo[tokenId];
+        require(block.timestamp >= rentInfo.expiryDate, "the lease has not expired yet!");
+        require(msg.sender == rentInfo.originalOwner, "you are not the original owner for this asset!");
         //return control to original owner
-        address owner = itemIdToOriginalOwner[tokenId];
-        ERC721(itemIdToNFTAddrs[tokenId]).safeTransferFrom(address(this), owner, tokenId);
+        address owner = rentInfo.originalOwner;
+        UniswapNFTManager.safeTransferFrom(address(this), owner, tokenId);
 
     }
 
