@@ -76,6 +76,7 @@ contract NonfungiblePositionManager is
         address payable originalOwner;
         address payable renter;
         uint256 price;
+        uint256 duration;
         uint256 expiryDate;
     }
 
@@ -281,7 +282,7 @@ contract NonfungiblePositionManager is
     }
     //Owner places NFT inside contract until they remove it or get an agreement
     //Added by Jwalin
-    function putUpNFTForRent(uint256 tokenId, uint256 price,uint256 expiryDate, address poolAddr) external {
+    function putUpNFTForRent(uint256 tokenId, uint256 price,uint256 duration, address poolAddr) external {
         UniswapNFTManager.safeTransferFrom(msg.sender, address(this), tokenId);
         _positions[tokenId] = getPositionFromUniswap(tokenId);
         _positions[tokenId].poolId = getPoolIdForPositionFromUniswap(tokenId, poolAddr);
@@ -293,7 +294,8 @@ contract NonfungiblePositionManager is
         itemIdToRentInfo[tokenId] = RentInfo({
             originalOwner: msg.sender,
             price: price,
-            expiryDate: expiryDate,
+            duration: duration
+            expiryDate: 0,
             renter: address(0)
         });
     }
@@ -340,6 +342,7 @@ contract NonfungiblePositionManager is
         require(block.timestamp < rentInfo.expiryDate, "Lease has expired!");
         //update who the renter is
         itemIdToRentInfo[tokenId].renter = msg.sender;
+        itemIdToRentInfo[tokenId].expiryDate = block.timestamp + itemIdToRentInfo[tokenId].duration;
         itemIdToRentInfo[tokenId].originalOwner.transfer(itemIdToRentInfo[tokenId].price);
         payoutNFT(tokenId, rentInfo.originalOwner);
         itemIdsForRent[itemIdToRentIndex[tokenId]] = itemIdsForRent[itemIdsForRent.length - 1];
