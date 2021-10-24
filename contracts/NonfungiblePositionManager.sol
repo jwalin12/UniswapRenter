@@ -138,6 +138,9 @@ contract NonfungiblePositionManager is
         );
     }
 
+
+
+
     /// @dev Caches a pool key
     function cachePoolKey(address pool, PoolAddress.PoolKey memory poolKey) private returns (uint80 poolId) {
         poolId = _poolIds[pool];
@@ -266,22 +269,22 @@ contract NonfungiblePositionManager is
     //Added by Jwalin
     function payoutNFT(uint256 tokenId, address payoutReceiver) private {
          //call collect to get amounts of different tokens and send back to owner        
-        (uint256 token0amt, uint256 token1amt) = this.collect(INonfungiblePositionManager.CollectParams({
+        (uint256 token0amt, uint256 token1amt) = UniswapNFTManager.collect(INonfungiblePositionManager.CollectParams({
             tokenId: tokenId,
-            recipient: payoutReceiver,
+            recipient: address(this),
             amount0Max: 1000000000,
             amount1Max: 1000000000
          }));
-        // //send payment back to original owner
-        // address token0Addr = itemIdToTokenAddrs[tokenId].token0Addr;
-        // address token1Addr = itemIdToTokenAddrs[tokenId].token1Addr;
-        // if (token0amt > 0) {
-        //     ERC20(token0Addr).transferFrom(address(this), payoutReceiver, token0amt);
+        //send payment back to original owner
+        address token0Addr = itemIdToTokenAddrs[tokenId].token0Addr;
+        address token1Addr = itemIdToTokenAddrs[tokenId].token1Addr;
+        if (token0amt > 0) {
+            ERC20(token0Addr).transferFrom(address(this), payoutReceiver, token0amt);
 
-        // }
-        // if (token1amt > 0) {
-        //     ERC20(token1Addr).transferFrom(address(this), payoutReceiver, token1amt);
-        // }
+        }
+        if (token1amt > 0) {
+            ERC20(token1Addr).transferFrom(address(this), payoutReceiver, token1amt);
+        }
        
         
     }
@@ -342,9 +345,7 @@ contract NonfungiblePositionManager is
         require(params.amount0Max > 0 || params.amount1Max > 0);
         // allow collecting to the nft position manager address with address 0
         address recipient = params.recipient == address(0) ? address(this) : params.recipient;
-
         Position storage position = _positions[params.tokenId];
-
         IUniswapV3Pool pool = IUniswapV3Pool(itemIdToPoolAddrs[params.tokenId]);
 
         (uint128 tokensOwed0, uint128 tokensOwed1) = (position.tokensOwed0, position.tokensOwed1);
