@@ -235,7 +235,7 @@ contract NonfungiblePositionManager is
     function putUpNFTForRent(uint256 tokenId, uint256 price,uint256 duration, address poolAddr) external {
         UniswapNFTManager.safeTransferFrom(msg.sender, address(this), tokenId);
         _positions[tokenId] = getPositionFromUniswap(tokenId);
-        _positions[tokenId].poolId = getPoolIdForPositionFromUniswap(tokenId, poolAddr);
+        itemIdToPoolAddrs[tokenId] = poolAddr;
         itemIds.push(tokenId);
         getTokensForPositionFromUniswap(tokenId); //updates mapping 
 
@@ -255,13 +255,12 @@ contract NonfungiblePositionManager is
         RentInfo memory rentInfo = itemIdToRentInfo[tokenId];
         require(rentInfo.renter == address(0),"someone is renting right now!");
         require(rentInfo.originalOwner == msg.sender, "you do not own this NFT!");
-        itemIds.pop();
         delete(itemIdToRentInfo[tokenId]);
         UniswapNFTManager.safeTransferFrom(address(this),rentInfo.originalOwner, tokenId);
         itemIdToIndex[itemIds.length - 1] = itemIdToIndex[tokenId];
         itemIds[itemIdToIndex[tokenId]] = itemIds[itemIds.length - 1]; 
+        itemIds.pop();
     }
-
 
     //utility function that pays out NFT to receiver.
     //Added by Jwalin
@@ -346,9 +345,7 @@ contract NonfungiblePositionManager is
 
         Position storage position = _positions[params.tokenId];
 
-        PoolAddress.PoolKey memory poolKey = _poolIdToPoolKey[position.poolId];
-
-        IUniswapV3Pool pool = IUniswapV3Pool(PoolAddress.computeAddress(factory, poolKey));
+        IUniswapV3Pool pool = IUniswapV3Pool(itemIdToPoolAddrs[params.tokenId]);
 
         (uint128 tokensOwed0, uint128 tokensOwed1) = (position.tokensOwed0, position.tokensOwed1);
 
