@@ -314,7 +314,7 @@ contract NonfungiblePositionManager is
         UniswapNFTManager.safeTransferFrom(address(this),rentInfo.originalOwner, tokenId);
         itemIdToRentIndex[itemIdsForRent.length - 1] = itemIdToRentIndex[tokenId];
         itemIdsForRent[itemIdToRentIndex[tokenId]] = itemIdsForRent[itemIdsForRent.length - 1]; 
-        itemIdToRentInfo[itemIdsForRent[tokenId]] = itemIdToRentIndex[tokenId]
+        delete(itemIdToRentInfo[tokenId]);
         itemIdsForRent.pop();
     }
 
