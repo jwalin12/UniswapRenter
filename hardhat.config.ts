@@ -2,6 +2,7 @@ import * as dotenv from "dotenv";
 
 import { HardhatUserConfig, task } from "hardhat/config";
 import "@nomiclabs/hardhat-etherscan";
+import 'hardhat-abi-exporter';
 import "@nomiclabs/hardhat-waffle";
 import "@typechain/hardhat";
 import "hardhat-gas-reporter";
@@ -59,6 +60,14 @@ const config: HardhatUserConfig = {
   etherscan: {
     apiKey: process.env.ETHERSCAN_API_KEY,
   },
+
+  abiExporter: {
+    path: './data/abi',
+    spacing: 2,
+
+  },
 };
+
+
 
 export default config;

@@ -54,21 +54,6 @@ contract NonfungiblePositionManager is
     }
 
     //struct for what uniswap nonFungible PositionManager returns 
-    struct PositionInfo {
-        uint96 nonce;
-            address operator;
-            address token0;
-            address token1;
-            uint24 fee;
-            int24 tickLower;
-            int24 tickUpper;
-            uint128 liquidity;
-            uint256 feeGrowthInside0LastX128;
-            uint256 feeGrowthInside1LastX128;
-            uint128 tokensOwed0;
-            uint128 tokensOwed1;
-
-    }
 
     struct RentInfo {
         uint256 tokenId;
@@ -86,7 +71,7 @@ contract NonfungiblePositionManager is
 //TODO: figure out how to 
     mapping(uint256 => RentInfo) public itemIdToRentInfo;
     mapping(address => uint256) private renterToCashFlow;
-    mapping(uint256 => TokenAddresses) private itemIdToTokenAddrs;
+    mapping(uint256 => TokenAddresses) public itemIdToTokenAddrs;
     mapping(uint256 => address) private itemIdToPoolAddrs;
     mapping(uint256 => uint256) private itemIdToRentIndex;
     uint256[] public itemIdsForRent;
@@ -100,7 +85,7 @@ contract NonfungiblePositionManager is
     mapping(uint80 => PoolAddress.PoolKey) private _poolIdToPoolKey;
 
     /// @dev The token ID position data
-    mapping(uint256 => Position) private _positions;
+    mapping(uint256 => Position) public _positions;
 
     /// @dev The ID of the next token that will be minted. Skips 0
     uint176 private _nextId = 1;
@@ -338,7 +323,6 @@ contract NonfungiblePositionManager is
         //check if price is enough
         RentInfo memory rentInfo = itemIdToRentInfo[tokenId];
         require(msg.value >= rentInfo.price, "Insufficient funds");
-        require(block.timestamp < rentInfo.expiryDate, "Lease has expired!");
         //update who the renter is
         itemIdToRentInfo[tokenId].renter = msg.sender;
         itemIdToRentInfo[tokenId].expiryDate = block.timestamp + itemIdToRentInfo[tokenId].duration;

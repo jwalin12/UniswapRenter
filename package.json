@@ -55,6 +55,8 @@
   "dependencies": {
     "@openzeppelin/contracts": "^3.4.1-solc-0.7-2",
     "@uniswap/lib": "^4.0.1-alpha",
-    "@uniswap/v3-core": "^1.0.0"
+    "@uniswap/v3-core": "^1.0.0",
+    "hardhat-abi-exporter": "^2.3.0",
+    "install": "^0.13.0"
   }
 }
