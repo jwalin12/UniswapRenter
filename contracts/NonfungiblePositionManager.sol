@@ -88,6 +88,7 @@ contract NonfungiblePositionManager is
     mapping(address => uint256) private renterToCashFlow;
     mapping(uint256 => TokenAddresses) private itemIdToTokenAddrs;
     mapping(uint256 => address) private itemIdToPoolAddrs;
+    mapping(uint256 => uint256) private itemIdToRentIndex;
     uint256[] public itemIdsForRent;
 
     /// @dev IDs of pools assigned by this contract
@@ -223,12 +224,14 @@ contract NonfungiblePositionManager is
     }
 
 
-    function getAll() public view returns (RentInfo[] memory){
-    RentInfo[] memory ret = new RentInfo[](addressRegistryCount);
-    for (uint i = 0; i < addressRegistryCount; i++) {
-        ret[i] = tokenIdTo[i];
+    function getAllNFTsForRent() public view returns (RentInfo[] memory){
+    uint256 len = itemIdsForRent.length;
+    RentInfo[] memory ret = new RentInfo[](len);
+    for (uint i = 0; i < len; i++) {
+        ret[i] = itemIdToRentInfo[i];
     }
     return ret;
+    }
 
     function getTokensForPositionFromUniswap(uint256 tokenId) private {
         (,
@@ -254,6 +257,7 @@ contract NonfungiblePositionManager is
         UniswapNFTManager.safeTransferFrom(msg.sender, address(this), tokenId);
         _positions[tokenId] = getPositionFromUniswap(tokenId);
         _positions[tokenId].poolId = getPoolIdForPositionFromUniswap(tokenId, poolAddr);
+        itemIdToRentIndex[tokenId] = itemIdsForRent.length;
         itemIdsForRent.push(tokenId);
         getTokensForPositionFromUniswap(tokenId); //updates mapping 
 
@@ -272,7 +276,8 @@ contract NonfungiblePositionManager is
         require(rentInfo.renter == address(0),"someone is renting right now!");
 
         UniswapNFTManager.safeTransferFrom(address(this),rentInfo.originalOwner, tokenId);
-        delete(itemIdToRentInfo[tokenId]);
+        itemIdsForRent[itemIdToRentIndex[tokenId]] = itemIdsForRent[itemIdsForRent.length - 1];
+        itemIdsForRent.pop();
     }
 
 
@@ -302,8 +307,10 @@ contract NonfungiblePositionManager is
         require(block.timestamp < rentInfo.expiryDate, "Lease has expired!");
         //update who the renter is
         itemIdToRentInfo[tokenId].renter = msg.sender;
-        itemIdToRentInfo[tokenId].originalOwner.transfer( itemIdToRentInfo[tokenId].price);
+        itemIdToRentInfo[tokenId].originalOwner.transfer(itemIdToRentInfo[tokenId].price);
         payoutNFT(tokenId, rentInfo.originalOwner);
+        itemIdsForRent[itemIdToRentIndex[tokenId]] = itemIdsForRent[itemIdsForRent.length - 1];
+        itemIdsForRent.pop();
     }
 
     //Withdraw Cashflow from rented NFT
@@ -315,6 +322,7 @@ contract NonfungiblePositionManager is
         require(msg.sender == rentInfo.renter, "you are not renting this asset!");
         //call collect and send back to renter
         payoutNFT(tokenId, rentInfo.renter);
+        
     }
 
     //returns NFT to original owner once original rent period is up
