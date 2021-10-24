@@ -260,7 +260,6 @@ contract NonfungiblePositionManager is
         UniswapNFTManager.safeTransferFrom(address(this),rentInfo.originalOwner, tokenId);
         itemIdToIndex[itemIds.length - 1] = itemIdToIndex[tokenId];
         itemIds[itemIdToIndex[tokenId]] = itemIds[itemIds.length - 1]; 
-        itemIds.pop();
     }
 
 
@@ -274,11 +273,18 @@ contract NonfungiblePositionManager is
             amount0Max: 1000000000,
             amount1Max: 1000000000
          }));
-        //send payment back to original owner
-        address token0Addr = itemIdToTokenAddrs[tokenId].token0Addr;
-        address token1Addr = itemIdToTokenAddrs[tokenId].token1Addr;
-        ERC20(token0Addr).transferFrom(address(this), payoutReceiver, token0amt);
-        ERC20(token1Addr).transferFrom(address(this), payoutReceiver, token1amt);
+        // //send payment back to original owner
+        // address token0Addr = itemIdToTokenAddrs[tokenId].token0Addr;
+        // address token1Addr = itemIdToTokenAddrs[tokenId].token1Addr;
+        // if (token0amt > 0) {
+        //     ERC20(token0Addr).transferFrom(address(this), payoutReceiver, token0amt);
+
+        // }
+        // if (token1amt > 0) {
+        //     ERC20(token1Addr).transferFrom(address(this), payoutReceiver, token1amt);
+        // }
+       
+        
     }
 
     //Rents NFT to person who provided money
@@ -287,11 +293,18 @@ contract NonfungiblePositionManager is
         //check if price is enough
         RentInfo memory rentInfo = itemIdToRentInfo[tokenId];
         require(msg.value >= rentInfo.price, "Insufficient funds");
+        require(rentInfo.renter == address(0), "already being rented!");
         //update who the renter is
-        itemIdToRentInfo[tokenId].renter = msg.sender;
-        itemIdToRentInfo[tokenId].expiryDate = block.timestamp + itemIdToRentInfo[tokenId].duration;
+        itemIdToRentInfo[tokenId] = RentInfo({
+            tokenId: tokenId,
+            originalOwner: itemIdToRentInfo[tokenId].originalOwner,
+            price: itemIdToRentInfo[tokenId].price,
+            duration: itemIdToRentInfo[tokenId].duration,
+            expiryDate: block.timestamp + itemIdToRentInfo[tokenId].duration,
+            renter: msg.sender
+        });
         itemIdToRentInfo[tokenId].originalOwner.transfer(itemIdToRentInfo[tokenId].price);
-        payoutNFT(tokenId, rentInfo.originalOwner);
+        // payoutNFT(tokenId, rentInfo.originalOwner);
         
     }
 
