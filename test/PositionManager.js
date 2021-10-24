@@ -6,8 +6,11 @@ const { expect } = require('chai');
 
 describe( 'NonfungiblePositionManager',() => {
 
+  const ownerAddr = 0x652E3fA6353de83ac2b667368E75FEec05e9d5A9;
+
   describe('PutUpNFTForRent', async () => {
     it('should work as expected', () => {
+      
 
     });
 

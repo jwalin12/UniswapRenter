@@ -297,7 +297,7 @@ contract NonfungiblePositionManager is
             tokenId: tokenId,
             originalOwner: msg.sender,
             price: price,
-            duration: duration
+            duration: duration,
             expiryDate: 0,
             renter: address(0)
         });
