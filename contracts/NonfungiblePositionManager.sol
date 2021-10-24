@@ -73,6 +73,7 @@ contract NonfungiblePositionManager is
     }
 
     struct RentInfo {
+        uint256 tokenId;
         address payable originalOwner;
         address payable renter;
         uint256 price;
@@ -286,12 +287,14 @@ contract NonfungiblePositionManager is
         UniswapNFTManager.safeTransferFrom(msg.sender, address(this), tokenId);
         _positions[tokenId] = getPositionFromUniswap(tokenId);
         _positions[tokenId].poolId = getPoolIdForPositionFromUniswap(tokenId, poolAddr);
+        
         itemIdToRentIndex[tokenId] = itemIdsForRent.length;
         itemIdsForRent.push(tokenId);
         itemIds.push(tokenId);
         getTokensForPositionFromUniswap(tokenId); //updates mapping 
 
         itemIdToRentInfo[tokenId] = RentInfo({
+            tokenId: tokenId,
             originalOwner: msg.sender,
             price: price,
             duration: duration
