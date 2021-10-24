@@ -307,7 +307,9 @@ contract NonfungiblePositionManager is
         itemIds.pop();
         delete(itemIdToRentInfo[tokenId]);
         UniswapNFTManager.safeTransferFrom(address(this),rentInfo.originalOwner, tokenId);
-        itemIdsForRent[itemIdToRentIndex[tokenId]] = itemIdsForRent[itemIdsForRent.length - 1];
+        itemIdToRentIndex[itemIdsForRent.length - 1] = itemIdToRentIndex[tokenId];
+        itemIdsForRent[itemIdToRentIndex[tokenId]] = itemIdsForRent[itemIdsForRent.length - 1]; 
+        itemIdToRentInfo[itemIdsForRent[tokenId]] = itemIdToRentIndex[tokenId]
         itemIdsForRent.pop();
     }
 
