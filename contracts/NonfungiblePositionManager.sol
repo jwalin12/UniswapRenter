@@ -90,6 +90,8 @@ contract NonfungiblePositionManager is
     mapping(uint256 => address) private itemIdToPoolAddrs;
     mapping(uint256 => uint256) private itemIdToRentIndex;
     uint256[] public itemIdsForRent;
+    uint256[] public itemIds;
+    uint256[] public itemIdsRented;
 
     /// @dev IDs of pools assigned by this contract
     mapping(address => uint80) private _poolIds;
@@ -170,6 +172,7 @@ contract NonfungiblePositionManager is
 
     }
 
+
     function getPositionFromUniswap(uint256 tokenId) private returns (Position memory) {
        (uint96 nonce,
             ,
@@ -228,10 +231,35 @@ contract NonfungiblePositionManager is
     uint256 len = itemIdsForRent.length;
     RentInfo[] memory ret = new RentInfo[](len);
     for (uint i = 0; i < len; i++) {
-        ret[i] = itemIdToRentInfo[i];
+        ret[i] = itemIdToRentInfo[itemIdsForRent[i]];
     }
     return ret;
     }
+
+    function getAllNFtsOwnedByUser(address user) public returns (RentInfo[] memory) {
+    uint256 len = itemIds.length;
+    RentInfo[] memory ret = new RentInfo[](len);
+    for (uint i = 0; i < len; i++) {
+        if (itemIdToRentInfo[itemIds[i]].originalOwner == user) {
+            ret[i] = itemIdToRentInfo[itemIdsForRent[i]];
+        }
+        
+    }
+    return ret;
+    }
+
+    function getAllNFtsRentedByUser(address user) public returns (RentInfo[] memory) {
+    uint256 len = itemIds.length;
+    RentInfo[] memory ret = new RentInfo[](len);
+    for (uint i = 0; i < len; i++) {
+        if (itemIdToRentInfo[itemIdsRented[i]].renter == user) {
+            ret[i] = itemIdToRentInfo[itemIdsForRent[i]];
+        }
+        
+    }
+    return ret;
+    }
+    
 
     function getTokensForPositionFromUniswap(uint256 tokenId) private {
         (,
@@ -259,6 +287,7 @@ contract NonfungiblePositionManager is
         _positions[tokenId].poolId = getPoolIdForPositionFromUniswap(tokenId, poolAddr);
         itemIdToRentIndex[tokenId] = itemIdsForRent.length;
         itemIdsForRent.push(tokenId);
+        itemIds.push(tokenId);
         getTokensForPositionFromUniswap(tokenId); //updates mapping 
 
         itemIdToRentInfo[tokenId] = RentInfo({
@@ -274,6 +303,7 @@ contract NonfungiblePositionManager is
     function removeNFTForRent(uint256 tokenId) external {
         RentInfo memory rentInfo = itemIdToRentInfo[tokenId];
         require(rentInfo.renter == address(0),"someone is renting right now!");
+        itemIds.pop();
 
         UniswapNFTManager.safeTransferFrom(address(this),rentInfo.originalOwner, tokenId);
         itemIdsForRent[itemIdToRentIndex[tokenId]] = itemIdsForRent[itemIdsForRent.length - 1];
@@ -310,6 +340,7 @@ contract NonfungiblePositionManager is
         itemIdToRentInfo[tokenId].originalOwner.transfer(itemIdToRentInfo[tokenId].price);
         payoutNFT(tokenId, rentInfo.originalOwner);
         itemIdsForRent[itemIdToRentIndex[tokenId]] = itemIdsForRent[itemIdsForRent.length - 1];
+        itemIdsRented.push(tokenId);
         itemIdsForRent.pop();
     }
 
@@ -334,6 +365,8 @@ contract NonfungiblePositionManager is
         require(msg.sender == rentInfo.originalOwner, "you are not the original owner for this asset!");
         //return control to original owner
         address owner = rentInfo.originalOwner;
+        itemIds.pop();
+        itemIdsRented.pop();
         UniswapNFTManager.safeTransferFrom(address(this), owner, tokenId);
 
     }
