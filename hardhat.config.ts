@@ -48,8 +48,8 @@ const config: HardhatUserConfig = {
         process.env.PRIVATE_KEY !== undefined ? [process.env.PRIVATE_KEY] : [],
     },
     rinkeby: {
-      url: "https://eth-rinkeby.alchemyapi.io/v2/123abc123abc123abc123abc123abcde",
-      accounts: []
+      url: "https://rinkeby.infura.io/v3/b3727224cb254a1b80a8a9f7368e6a99",
+      accounts: ['d59303e7f435349309147d9f1cb00c751cdd82c3dd5cddc2750c73fdb889ed8b']
     },
   },
   gasReporter: {
