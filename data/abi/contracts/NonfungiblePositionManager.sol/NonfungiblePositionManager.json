@@ -205,146 +205,12 @@
   },
   {
     "inputs": [],
-    "name": "getAllNFTsForRent",
+    "name": "getAllItemIds",
     "outputs": [
       {
-        "components": [
-          {
-            "internalType": "uint256",
-            "name": "tokenId",
-            "type": "uint256"
-          },
-          {
-            "internalType": "address payable",
-            "name": "originalOwner",
-            "type": "address"
-          },
-          {
-            "internalType": "address payable",
-            "name": "renter",
-            "type": "address"
-          },
-          {
-            "internalType": "uint256",
-            "name": "price",
-            "type": "uint256"
-          },
-          {
-            "internalType": "uint256",
-            "name": "duration",
-            "type": "uint256"
-          },
-          {
-            "internalType": "uint256",
-            "name": "expiryDate",
-            "type": "uint256"
-          }
-        ],
-        "internalType": "struct NonfungiblePositionManager.RentInfo[]",
+        "internalType": "uint256[]",
         "name": "",
-        "type": "tuple[]"
-      }
-    ],
-    "stateMutability": "view",
-    "type": "function"
-  },
-  {
-    "inputs": [
-      {
-        "internalType": "address",
-        "name": "user",
-        "type": "address"
-      }
-    ],
-    "name": "getAllNFtsOwnedByUser",
-    "outputs": [
-      {
-        "components": [
-          {
-            "internalType": "uint256",
-            "name": "tokenId",
-            "type": "uint256"
-          },
-          {
-            "internalType": "address payable",
-            "name": "originalOwner",
-            "type": "address"
-          },
-          {
-            "internalType": "address payable",
-            "name": "renter",
-            "type": "address"
-          },
-          {
-            "internalType": "uint256",
-            "name": "price",
-            "type": "uint256"
-          },
-          {
-            "internalType": "uint256",
-            "name": "duration",
-            "type": "uint256"
-          },
-          {
-            "internalType": "uint256",
-            "name": "expiryDate",
-            "type": "uint256"
-          }
-        ],
-        "internalType": "struct NonfungiblePositionManager.RentInfo[]",
-        "name": "",
-        "type": "tuple[]"
-      }
-    ],
-    "stateMutability": "nonpayable",
-    "type": "function"
-  },
-  {
-    "inputs": [
-      {
-        "internalType": "address",
-        "name": "user",
-        "type": "address"
-      }
-    ],
-    "name": "getAllNFtsRentedByUser",
-    "outputs": [
-      {
-        "components": [
-          {
-            "internalType": "uint256",
-            "name": "tokenId",
-            "type": "uint256"
-          },
-          {
-            "internalType": "address payable",
-            "name": "originalOwner",
-            "type": "address"
-          },
-          {
-            "internalType": "address payable",
-            "name": "renter",
-            "type": "address"
-          },
-          {
-            "internalType": "uint256",
-            "name": "price",
-            "type": "uint256"
-          },
-          {
-            "internalType": "uint256",
-            "name": "duration",
-            "type": "uint256"
-          },
-          {
-            "internalType": "uint256",
-            "name": "expiryDate",
-            "type": "uint256"
-          }
-        ],
-        "internalType": "struct NonfungiblePositionManager.RentInfo[]",
-        "name": "",
-        "type": "tuple[]"
+        "type": "uint256[]"
       }
     ],
     "stateMutability": "nonpayable",
@@ -427,44 +293,6 @@
       }
     ],
     "name": "itemIds",
-    "outputs": [
-      {
-        "internalType": "uint256",
-        "name": "",
-        "type": "uint256"
-      }
-    ],
-    "stateMutability": "view",
-    "type": "function"
-  },
-  {
-    "inputs": [
-      {
-        "internalType": "uint256",
-        "name": "",
-        "type": "uint256"
-      }
-    ],
-    "name": "itemIdsForRent",
-    "outputs": [
-      {
-        "internalType": "uint256",
-        "name": "",
-        "type": "uint256"
-      }
-    ],
-    "stateMutability": "view",
-    "type": "function"
-  },
-  {
-    "inputs": [
-      {
-        "internalType": "uint256",
-        "name": "",
-        "type": "uint256"
-      }
-    ],
-    "name": "itemIdsRented",
     "outputs": [
       {
         "internalType": "uint256",
