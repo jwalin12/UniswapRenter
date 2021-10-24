@@ -303,8 +303,9 @@ contract NonfungiblePositionManager is
     function removeNFTForRent(uint256 tokenId) external {
         RentInfo memory rentInfo = itemIdToRentInfo[tokenId];
         require(rentInfo.renter == address(0),"someone is renting right now!");
+        require(rentInfo.originalOwner == msg.sender, "you do not own this NFT!");
         itemIds.pop();
-
+        delete(itemIdToRentInfo[tokenId]);
         UniswapNFTManager.safeTransferFrom(address(this),rentInfo.originalOwner, tokenId);
         itemIdsForRent[itemIdToRentIndex[tokenId]] = itemIdsForRent[itemIdsForRent.length - 1];
         itemIdsForRent.pop();
