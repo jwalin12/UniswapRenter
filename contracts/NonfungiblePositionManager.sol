@@ -25,130 +25,29 @@ import "utils/structs/tokenAddresses.sol";
 /// @notice Wraps Uniswap V3 positions in the ERC721 non-fungible token interface
 contract NonfungiblePositionManager is
     Multicall,
-    PeripheryImmutableState,
-    PoolInitializer,
-    LiquidityManagement,
-    PeripheryValidation,
-    SelfPermit,
     IERC721Receiver
 {
-    // details about the uniswap position
-    struct Position {
-        // the nonce for permits
-        uint96 nonce;
-        // the address that is approved for spending this token
-        address operator;
-        // the ID of the pool with which this token is connected
-        uint80 poolId;
-        // the tick range of the position
-        int24 tickLower;
-        int24 tickUpper;
-        // the liquidity of the position
-        uint128 liquidity;
-        // the fee growth of the aggregate position as of the last action on the individual position
-        uint256 feeGrowthInside0LastX128;
-        uint256 feeGrowthInside1LastX128;
-        // how many uncollected tokens are owed to the position, as of the last computation
-        uint128 tokensOwed0;
-        uint128 tokensOwed1;
-    }
 
-    //struct for what uniswap nonFungible PositionManager returns 
-
-    struct RentInfo {
-        uint256 tokenId;
-        address payable originalOwner;
-        address payable renter;
-        uint256 price;
-        uint256 duration;
-        uint256 expiryDate;
-    }
 
     INonfungiblePositionManager public immutable UniswapNFTManager =  INonfungiblePositionManager(0xC36442b4a4522E871399CD717aBDD847Ab11FE88);
 
 //TODO: consolidate mappings into structs
 //TODO: update mappings in functions
 //TODO: figure out how to 
+
+  struct RentInfo {
+        uint256 tokenId;
+        address payable originalOwner;
+        address payable renter;
+        uint256 price;
+        uint256 duration;
+        uint256 expiryDate;
+    } 
+
     mapping(uint256 => RentInfo) public itemIdToRentInfo;
-    mapping(address => uint256) private renterToCashFlow;
-    mapping(uint256 => TokenAddresses) public itemIdToTokenAddrs;
-    mapping(uint256 => address) private itemIdToPoolAddrs;
     mapping(uint256 => uint256) private itemIdToIndex;
+    mapping(uint256 => TokenAddresses) public itemIdToTokenAddrs;
     uint256[] public itemIds;
-
-    /// @dev IDs of pools assigned by this contract
-    mapping(address => uint80) private _poolIds;
-
-    /// @dev Pool keys by pool ID, to save on SSTOREs for position data
-    mapping(uint80 => PoolAddress.PoolKey) private _poolIdToPoolKey;
-
-    /// @dev The token ID position data
-    mapping(uint256 => Position) public _positions;
-
-    /// @dev The ID of the next token that will be minted. Skips 0
-    uint176 private _nextId = 1;
-    /// @dev The ID of the next pool that is used for the first time. Skips 0
-    uint80 private _nextPoolId = 1;
-
-    /// @dev The address of the token descriptor contract, which handles generating token URIs for position tokens
-    address private immutable _tokenDescriptor;
-
-    constructor(
-        address _factory,
-        address _WETH9,
-        address _tokenDescriptor_
-    ) PeripheryImmutableState(_factory, _WETH9) {
-        _tokenDescriptor = _tokenDescriptor_;
-    }
-
-    function positions(uint256 tokenId)
-        external
-        view
-        returns (
-            uint96 nonce,
-            address operator,
-            address token0,
-            address token1,
-            uint24 fee,
-            int24 tickLower,
-            int24 tickUpper,
-            uint128 liquidity,
-            uint256 feeGrowthInside0LastX128,
-            uint256 feeGrowthInside1LastX128,
-            uint128 tokensOwed0,
-            uint128 tokensOwed1
-        )
-    {
-        Position memory position = _positions[tokenId];
-        require(position.poolId != 0, 'Invalid token ID');
-        PoolAddress.PoolKey memory poolKey = _poolIdToPoolKey[position.poolId];
-        return (
-            position.nonce,
-            position.operator,
-            poolKey.token0,
-            poolKey.token1,
-            poolKey.fee,
-            position.tickLower,
-            position.tickUpper,
-            position.liquidity,
-            position.feeGrowthInside0LastX128,
-            position.feeGrowthInside1LastX128,
-            position.tokensOwed0,
-            position.tokensOwed1
-        );
-    }
-
-
-
-
-    /// @dev Caches a pool key
-    function cachePoolKey(address pool, PoolAddress.PoolKey memory poolKey) private returns (uint80 poolId) {
-        poolId = _poolIds[pool];
-        if (poolId == 0) {
-            _poolIds[pool] = (poolId = _nextPoolId++);
-            _poolIdToPoolKey[poolId] = poolKey;
-        }
-    }
 
     function getAllItemIds() public returns (uint256[] memory) {
         return itemIds;
@@ -157,92 +56,34 @@ contract NonfungiblePositionManager is
     //function that receives an NFT from an external source.
     function onERC721Received(address operator, address from, uint256 tokenId, bytes calldata data) external override returns (bytes4) {
         return this.onERC721Received.selector;
-
     }
 
-
-    function getPositionFromUniswap(uint256 tokenId) private returns (Position memory) {
-       (uint96 nonce,
+    function cacheTokenAddrs(uint256 tokenId) private {
+        (
             ,
-            ,
-            ,
-            uint24 fee,
-            int24 tickLower,
-            int24 tickUpper,
-            uint128 liquidity,
-            uint256 feeGrowthInside0LastX128,
-            uint256 feeGrowthInside1LastX128,
-            uint128 tokensOwed0,
-            uint128 tokensOwed1)
-         = UniswapNFTManager.positions(tokenId);
-        return Position({
-        nonce: nonce,
-        operator: address(this),
-        poolId: 1, 
-        fee: fee,
-        tickLower: tickLower,
-        tickUpper: tickUpper, 
-        liquidity: liquidity, 
-        feeGrowthInside0LastX128: feeGrowthInside0LastX128,
-        feeGrowthInside1LastX128: feeGrowthInside1LastX128,
-        tokensOwed0: tokensOwed0,
-        tokensOwed1: tokensOwed1 
-        });
-
-   
-
-    }
-
-    function getPoolIdForPositionFromUniswap(uint256 tokenId, address poolAddr) private returns (uint80) {
-        (,
             ,
             address token0,
             address token1,
-            uint24 fee,
             ,
             ,
             ,
             ,
             ,
             ,
-            )
-         = UniswapNFTManager.positions(tokenId);
-        uint80 poolId =
-            cachePoolKey(
-                poolAddr,
-                PoolAddress.PoolKey({token0: token0, token1: token1, fee: fee})
-            );
-        return poolId;
+            ,
+           
+        ) = UniswapNFTManager.positions(tokenId);
+        itemIdToTokenAddrs[tokenId] = TokenAddresses({ token0Addr: token0, token1Addr: token1 });
+        
     }
 
 
-    function getTokensForPositionFromUniswap(uint256 tokenId) private {
-        (,
-            ,
-            address token0,
-            address token1,
-            uint256 fee,
-            ,
-            ,
-            ,
-            ,
-            ,
-            ,
-            )
-         = UniswapNFTManager.positions(tokenId);
-
-         itemIdToTokenAddrs[tokenId] = TokenAddresses({ token0Addr: token0, token1Addr: token1 });
-
-    }
     //Owner places NFT inside contract until they remove it or get an agreement
     //Added by Jwalin
-    function putUpNFTForRent(uint256 tokenId, uint256 price,uint256 duration, address poolAddr) external {
+    //TODO: create a func that gets position Info and stores it in a mapping then lookup mapping for tokens and positions
+    function putUpNFTForRent(uint256 tokenId, uint256 price,uint256 duration) external {
         UniswapNFTManager.safeTransferFrom(msg.sender, address(this), tokenId);
-        _positions[tokenId] = getPositionFromUniswap(tokenId);
-        itemIdToPoolAddrs[tokenId] = poolAddr;
         itemIds.push(tokenId);
-        getTokensForPositionFromUniswap(tokenId); //updates mapping 
-
         itemIdToRentInfo[tokenId] = RentInfo({
             tokenId: tokenId,
             originalOwner: msg.sender,
@@ -286,8 +127,7 @@ contract NonfungiblePositionManager is
         if (token1amt > 0) {
             ERC20(token1Addr).transferFrom(address(this), payoutReceiver, token1amt);
         }
-       
-        
+          
     }
 
     //Rents NFT to person who provided money
