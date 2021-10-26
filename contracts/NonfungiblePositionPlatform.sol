@@ -31,11 +31,12 @@ contract NonfungiblePositionPlatform is
     mapping(uint256 => uint256) private itemIdToIndex;
     mapping(uint256 => TokenAddresses) public itemIdToTokenAddrs;
     uint256[] public itemIds;
+    uint256 public marketplaceFee; /// fee taken from seller, where a 1.26% fee is represented as 126. Calculate fee by doing price * marketplaceFee / 10,000
     address public _owner;
 
-    constructor(address payable currOwner) {
+    constructor(address payable currOwner, uint256 fee) {
         _owner = currOwner;
-        
+        marketplaceFee = fee;
     }
 
 
@@ -86,6 +87,7 @@ contract NonfungiblePositionPlatform is
         UniswapNFTManager.safeTransferFrom(msg.sender, address(this), tokenId);
         cacheTokenAddrs(tokenId);
         itemIds.push(tokenId);
+        itemIdToIndex[tokenId] = itemIds.length - 1;
         itemIdToRentInfo[tokenId] = RentInfo({
             tokenId: tokenId,
             originalOwner: msg.sender,
@@ -116,7 +118,8 @@ contract NonfungiblePositionPlatform is
         require(rentInfo.originalOwner == msg.sender, "you do not own this NFT!");
         delete(itemIdToRentInfo[tokenId]);
         UniswapNFTManager.safeTransferFrom(address(this),rentInfo.originalOwner, tokenId);
-        itemIdToIndex[itemIds.length - 1] = itemIdToIndex[tokenId];
+        /// get the last element of itemIds, which is a tokenId. Use that tokenId to index into itemIdToIndex and swap.
+        itemIdToIndex[itemIds[itemIds.length - 1]] = itemIdToIndex[tokenId];
         itemIds[itemIdToIndex[tokenId]] = itemIds[itemIds.length - 1]; 
         itemIds.pop();
     }
@@ -147,18 +150,20 @@ contract NonfungiblePositionPlatform is
     function rentNFT(uint256 tokenId) external payable {
         //check if price is enough
         RentInfo memory rentInfo = itemIdToRentInfo[tokenId];
-        require(msg.value >= rentInfo.price, "Insufficient funds");
+        require(msg.value < rentInfo.price, "Insufficient funds");
         require(rentInfo.renter == address(0), "already being rented!");
         //update who the renter is
         itemIdToRentInfo[tokenId] = RentInfo({
             tokenId: tokenId,
-            originalOwner: itemIdToRentInfo[tokenId].originalOwner,
-            price: itemIdToRentInfo[tokenId].price,
-            duration: itemIdToRentInfo[tokenId].duration,
-            expiryDate: block.timestamp + itemIdToRentInfo[tokenId].duration,
+            originalOwner: rentInfo.originalOwner,
+            price: rentInfo.price,
+            duration: rentInfo.duration,
+            expiryDate: block.timestamp + rentInfo.duration,
             renter: msg.sender
         });
-        itemIdToRentInfo[tokenId].originalOwner.transfer(itemIdToRentInfo[tokenId].price);
+        /// pay the seller the price minus marketplace fee %. 
+        /// Remember marketplaceFee is represented as a % * 100 to account for 2 decimal places so we must divide by 100*100 = 10,000
+        itemIdToRentInfo[tokenId].originalOwner.transfer(rentInfo.price - rentInfo.price * marketplaceFee / 10000); 
         // payoutNFT(tokenId, rentInfo.originalOwner);
         
     }
@@ -182,7 +187,8 @@ contract NonfungiblePositionPlatform is
         require(msg.sender == rentInfo.originalOwner, "you are not the original owner for this asset!");
         //return control to original owner
         address owner = rentInfo.originalOwner;
-        itemIdToIndex[itemIds.length - 1] = itemIdToIndex[tokenId];
+        /// get the last element of itemIds, which is a tokenId. Use that tokenId to index into itemIdToIndex and swap.
+        itemIdToIndex[itemIds[itemIds.length - 1]] = itemIdToIndex[tokenId];
         itemIds[itemIdToIndex[tokenId]] = itemIds[itemIds.length - 1]; 
         itemIds.pop();
         UniswapNFTManager.safeTransferFrom(address(this), owner, tokenId);
