@@ -31,7 +31,7 @@ contract NonfungiblePositionPlatform is
     mapping(uint256 => uint256) private itemIdToIndex;
     mapping(uint256 => TokenAddresses) public itemIdToTokenAddrs;
     uint256[] public itemIds;
-    address payable _owner;
+    address public _owner;
 
     constructor(address payable currOwner) {
         _owner = currOwner;
@@ -98,7 +98,7 @@ contract NonfungiblePositionPlatform is
 
     /**
     Deposits money in smart contract. used to collect fees. */
-    function deposit(uint256 amount) payable public {
+    function deposit(uint256 amount) public payable {
         require(msg.value == amount, "Insufficient funds");
     }
 
