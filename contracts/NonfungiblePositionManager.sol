@@ -2,22 +2,10 @@
 pragma solidity =0.7.6;
 pragma abicoder v2;
 
-import '@uniswap/v3-core/contracts/interfaces/IUniswapV3Pool.sol';
-import '@uniswap/v3-core/contracts/libraries/FixedPoint128.sol';
-import '@uniswap/v3-core/contracts/libraries/FullMath.sol';
 import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
-
 import '@uniswap/v3-periphery/contracts/interfaces/INonfungiblePositionManager.sol';
-import '@uniswap/v3-periphery/contracts/interfaces/INonfungibleTokenPositionDescriptor.sol';
-import '@uniswap/v3-periphery/contracts/libraries/PositionKey.sol';
-import '@uniswap/v3-periphery/contracts/libraries/PoolAddress.sol';
-import '@uniswap/v3-periphery/contracts/base/LiquidityManagement.sol';
-import '@uniswap/v3-periphery/contracts/base/PeripheryImmutableState.sol';
 import '@uniswap/v3-periphery/contracts/base/Multicall.sol';
 import '@uniswap/v3-periphery/contracts/base/ERC721Permit.sol';
-import '@uniswap/v3-periphery/contracts/base/PeripheryValidation.sol';
-import '@uniswap/v3-periphery/contracts/base/SelfPermit.sol';
-import '@uniswap/v3-periphery/contracts/base/PoolInitializer.sol';
 
 import "utils/structs/tokenAddresses.sol";
 
@@ -83,6 +71,7 @@ contract NonfungiblePositionManager is
     //TODO: create a func that gets position Info and stores it in a mapping then lookup mapping for tokens and positions
     function putUpNFTForRent(uint256 tokenId, uint256 price,uint256 duration) external {
         UniswapNFTManager.safeTransferFrom(msg.sender, address(this), tokenId);
+        cacheTokenAddrs(tokenId);
         itemIds.push(tokenId);
         itemIdToRentInfo[tokenId] = RentInfo({
             tokenId: tokenId,
