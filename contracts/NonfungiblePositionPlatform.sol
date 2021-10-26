@@ -150,7 +150,7 @@ contract NonfungiblePositionPlatform is
     function rentNFT(uint256 tokenId) external payable {
         //check if price is enough
         RentInfo memory rentInfo = itemIdToRentInfo[tokenId];
-        require(msg.value < rentInfo.price, "Insufficient funds");
+        require(msg.value >= rentInfo.price, "Insufficient funds");
         require(rentInfo.renter == address(0), "already being rented!");
         //update who the renter is
         itemIdToRentInfo[tokenId] = RentInfo({
