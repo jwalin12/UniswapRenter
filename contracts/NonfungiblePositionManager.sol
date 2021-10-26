@@ -3,9 +3,9 @@ pragma solidity =0.7.6;
 pragma abicoder v2;
 
 import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
-import '@uniswap/v3-periphery/contracts/interfaces/INonfungiblePositionManager.sol';
-import '@uniswap/v3-periphery/contracts/base/Multicall.sol';
-import '@uniswap/v3-periphery/contracts/base/ERC721Permit.sol';
+import "@openzeppelin/contracts/token/ERC721/IERC721Receiver.sol";
+import "@uniswap/v3-periphery/contracts/interfaces/INonfungiblePositionManager.sol";
+import "@uniswap/v3-periphery/contracts/base/Multicall.sol";
 
 import "utils/structs/tokenAddresses.sol";
 
@@ -15,27 +15,37 @@ contract NonfungiblePositionManager is
     Multicall,
     IERC721Receiver
 {
-
-
     INonfungiblePositionManager public immutable UniswapNFTManager =  INonfungiblePositionManager(0xC36442b4a4522E871399CD717aBDD847Ab11FE88);
 
-//TODO: consolidate mappings into structs
-//TODO: update mappings in functions
-//TODO: figure out how to 
-
   struct RentInfo {
-        uint256 tokenId;
         address payable originalOwner;
         address payable renter;
+        uint256 tokenId;
         uint256 price;
         uint256 duration;
         uint256 expiryDate;
     } 
 
+
     mapping(uint256 => RentInfo) public itemIdToRentInfo;
     mapping(uint256 => uint256) private itemIdToIndex;
     mapping(uint256 => TokenAddresses) public itemIdToTokenAddrs;
     uint256[] public itemIds;
+    address payable _owner;
+
+    constructor(address payable currOwner) {
+        _owner = currOwner;
+        
+    }
+
+
+
+    function setOwner(address payable newOwner) public {
+        require(msg.sender == _owner, "You are not the owner!");
+        _owner = newOwner;
+    }
+
+
 
     function getAllItemIds() public returns (uint256[] memory) {
         return itemIds;
@@ -83,6 +93,22 @@ contract NonfungiblePositionManager is
         });
     }
 
+    function deposit(uint256 amount) payable public {
+        require(msg.value == amount, "Insufficient funds");
+    }
+
+    function withdraw() public {
+        require(msg.sender == _owner, "You are not the owner!");
+        msg.sender.transfer(address(this).balance);
+    }
+    
+
+    //TODO: move to FE
+    function calcuatePlatformFees(uint256 tokenId) public returns (uint256) {
+       uint256 fee = itemIdToRentInfo[tokenId].price* 9/1000;
+       return fee;
+    }
+
     //Owner removes NFT from rent availability
     //Added by Jwalin
     function removeNFTForRent(uint256 tokenId) external {
@@ -119,7 +145,7 @@ contract NonfungiblePositionManager is
           
     }
 
-    //Rents NFT to person who provided money
+    //Rents NFT to person who pro fded money
     //Added by Jwalin
     function rentNFT(uint256 tokenId) external payable {
         //check if price is enough
