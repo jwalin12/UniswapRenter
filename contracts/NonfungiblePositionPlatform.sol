@@ -109,15 +109,6 @@ contract NonfungiblePositionPlatform is
         msg.sender.transfer(address(this).balance);
     }
     
-
-    //TODO: move to FE?
-    /**
-    Calculates platform fees when a buy order is executed. */
-    function calcuatePlatformFees(uint256 tokenId) public returns (uint256) {
-       uint256 fee = itemIdToRentInfo[tokenId].price* 9/1000;
-       return fee;
-    }
-
     //Owner removes NFT from rent availability
     function removeNFTForRent(uint256 tokenId) external {
         RentInfo memory rentInfo = itemIdToRentInfo[tokenId];
