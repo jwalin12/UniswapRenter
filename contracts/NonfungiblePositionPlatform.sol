@@ -11,7 +11,7 @@ import "utils/structs/tokenAddresses.sol";
 
 /// @title NFT positions
 /// @notice Wraps Uniswap V3 positions in the ERC721 non-fungible token interface
-contract NonfungiblePositionManager is
+contract NonfungiblePositionPlatform is
     Multicall,
     IERC721Receiver
 {
@@ -39,14 +39,17 @@ contract NonfungiblePositionManager is
     }
 
 
-
+    /**
+    Sets owner of new smart contract.
+     */
     function setOwner(address payable newOwner) public {
         require(msg.sender == _owner, "You are not the owner!");
         _owner = newOwner;
     }
 
-
-
+    /**
+    Returns array of all item Ids
+     */
     function getAllItemIds() public returns (uint256[] memory) {
         return itemIds;
     }
@@ -56,6 +59,8 @@ contract NonfungiblePositionManager is
         return this.onERC721Received.selector;
     }
 
+    /**
+    Caches token Addresses on chain */
     function cacheTokenAddrs(uint256 tokenId) private {
         (
             ,
@@ -77,8 +82,6 @@ contract NonfungiblePositionManager is
 
 
     //Owner places NFT inside contract until they remove it or get an agreement
-    //Added by Jwalin
-    //TODO: create a func that gets position Info and stores it in a mapping then lookup mapping for tokens and positions
     function putUpNFTForRent(uint256 tokenId, uint256 price,uint256 duration) external {
         UniswapNFTManager.safeTransferFrom(msg.sender, address(this), tokenId);
         cacheTokenAddrs(tokenId);
@@ -93,24 +96,29 @@ contract NonfungiblePositionManager is
         });
     }
 
+    /**
+    Deposits money in smart contract. used to collect fees. */
     function deposit(uint256 amount) payable public {
         require(msg.value == amount, "Insufficient funds");
     }
 
+    /**
+    Withdraws money from smart contract. */
     function withdraw() public {
         require(msg.sender == _owner, "You are not the owner!");
         msg.sender.transfer(address(this).balance);
     }
     
 
-    //TODO: move to FE
+    //TODO: move to FE?
+    /**
+    Calculates platform fees when a buy order is executed. */
     function calcuatePlatformFees(uint256 tokenId) public returns (uint256) {
        uint256 fee = itemIdToRentInfo[tokenId].price* 9/1000;
        return fee;
     }
 
     //Owner removes NFT from rent availability
-    //Added by Jwalin
     function removeNFTForRent(uint256 tokenId) external {
         RentInfo memory rentInfo = itemIdToRentInfo[tokenId];
         require(rentInfo.renter == address(0),"someone is renting right now!");
@@ -123,16 +131,14 @@ contract NonfungiblePositionManager is
     }
 
     //utility function that pays out NFT to receiver.
-    //Added by Jwalin
-    function payoutNFT(uint256 tokenId, address payoutReceiver) private {
-         //call collect to get amounts of different tokens and send back to owner        
+    function payoutNFT(uint256 tokenId, address payoutReceiver) private {      
         (uint256 token0amt, uint256 token1amt) = UniswapNFTManager.collect(INonfungiblePositionManager.CollectParams({
             tokenId: tokenId,
             recipient: address(this),
             amount0Max: 1000000000,
             amount1Max: 1000000000
          }));
-        //send payment back to original owner
+        //send payment back to payout receiver
         address token0Addr = itemIdToTokenAddrs[tokenId].token0Addr;
         address token1Addr = itemIdToTokenAddrs[tokenId].token1Addr;
         if (token0amt > 0) {
@@ -166,9 +172,8 @@ contract NonfungiblePositionManager is
         
     }
 
-    //Withdraw Cashflow from rented NFT
-    // Added by Jwalin
-    function withdrawCash(uint256 tokenId) external {
+    //Withdraw fees earned from rented NFT
+    function withdrawFees(uint256 tokenId) external {
         //needs to check that time to rent has not passed
         RentInfo memory rentInfo = itemIdToRentInfo[tokenId];
         require(block.timestamp < rentInfo.expiryDate, "the lease has expired!");
@@ -179,7 +184,6 @@ contract NonfungiblePositionManager is
     }
 
     //returns NFT to original owner once original rent period is up
-    // Added by Jwalin
     function returnNFTToOwner(uint256 tokenId) external {
         //check that rent period is up
         RentInfo memory rentInfo = itemIdToRentInfo[tokenId];
