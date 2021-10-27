@@ -129,20 +129,20 @@ contract NonfungiblePositionPlatform is
     function payoutNFT(uint256 tokenId, address payoutReceiver) private {      
         (uint256 token0amt, uint256 token1amt) = UniswapNFTManager.collect(INonfungiblePositionManager.CollectParams({
             tokenId: tokenId,
-            recipient: address(this),
+            recipient: payoutReceiver,
             amount0Max: 1000000000,
             amount1Max: 1000000000
          }));
         //send payment back to payout receiver
-        address token0Addr = itemIdToTokenAddrs[tokenId].token0Addr;
-        address token1Addr = itemIdToTokenAddrs[tokenId].token1Addr;
-        if (token0amt > 0) {
-            ERC20(token0Addr).transferFrom(address(this), payoutReceiver, token0amt);
+        // address token0Addr = itemIdToTokenAddrs[tokenId].token0Addr;
+        // address token1Addr = itemIdToTokenAddrs[tokenId].token1Addr;
+        // if (token0amt > 0) {
+        //     ERC20(token0Addr).transferFrom(address(this), payoutReceiver, token0amt);
 
-        }
-        if (token1amt > 0) {
-            ERC20(token1Addr).transferFrom(address(this), payoutReceiver, token1amt);
-        }
+        // }
+        // if (token1amt > 0) {
+        //     ERC20(token1Addr).transferFrom(address(this), payoutReceiver, token1amt);
+        // }
           
     }
 
