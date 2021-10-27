@@ -83,7 +83,7 @@ contract NonfungiblePositionPlatform is
 
 
     //Owner places NFT inside contract until they remove it or get an agreement
-    function putUpNFTForRent(uint256 tokenId, uint256 price,uint256 duration) external {
+    function putUpNFTForRent(uint256 tokenId, uint256 price, uint256 duration) external {
         UniswapNFTManager.safeTransferFrom(msg.sender, address(this), tokenId);
         cacheTokenAddrs(tokenId);
         itemIds.push(tokenId);
@@ -116,12 +116,8 @@ contract NonfungiblePositionPlatform is
         RentInfo memory rentInfo = itemIdToRentInfo[tokenId];
         require(rentInfo.renter == address(0),"someone is renting right now!");
         require(rentInfo.originalOwner == msg.sender, "you do not own this NFT!");
-        delete(itemIdToRentInfo[tokenId]);
         UniswapNFTManager.safeTransferFrom(address(this),rentInfo.originalOwner, tokenId);
-        /// get the last element of itemIds, which is a tokenId. Use that tokenId to index into itemIdToIndex and swap.
-        itemIdToIndex[itemIds[itemIds.length - 1]] = itemIdToIndex[tokenId];
-        itemIds[itemIdToIndex[tokenId]] = itemIds[itemIds.length - 1]; 
-        itemIds.pop();
+        removeItem(tokenId);
     }
 
     //utility function that pays out NFT to receiver.
@@ -184,14 +180,21 @@ contract NonfungiblePositionPlatform is
         //check that rent period is up
         RentInfo memory rentInfo = itemIdToRentInfo[tokenId];
         require(block.timestamp >= rentInfo.expiryDate, "the lease has not expired yet!");
-        require(msg.sender == rentInfo.originalOwner, "you are not the original owner for this asset!");
+        require(msg.sender == rentInfo.originalOwner, "you are not the original owner!");
+        delete(itemIdToRentInfo[tokenId]);
         //return control to original owner
         address owner = rentInfo.originalOwner;
-        /// get the last element of itemIds, which is a tokenId. Use that tokenId to index into itemIdToIndex and swap.
-        itemIdToIndex[itemIds[itemIds.length - 1]] = itemIdToIndex[tokenId];
-        itemIds[itemIdToIndex[tokenId]] = itemIds[itemIds.length - 1]; 
-        itemIds.pop();
+        removeItem(tokenId);
         UniswapNFTManager.safeTransferFrom(address(this), owner, tokenId);
 
+    }
+
+    function removeItem(uint256 tokenId) private {
+        delete(itemIdToRentInfo[tokenId]);
+        if (itemIds.length > 1) {
+            itemIdToIndex[itemIds[itemIds.length - 1]] = itemIdToIndex[tokenId];
+            itemIds[itemIdToIndex[tokenId]] = itemIds[itemIds.length - 1]; 
+        }
+        itemIds.pop();
     }
 }

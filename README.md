@@ -26,7 +26,7 @@ npx solhint 'contracts/**/*.sol' --fix
 ```
 
 # Deploy
-run npx hardhat run scripts/deploy.js
+npx hardhat run scripts/deploy.js
 
 # Etherscan verification
 

@@ -5,6 +5,11 @@
         "internalType": "address payable",
         "name": "currOwner",
         "type": "address"
+      },
+      {
+        "internalType": "uint256",
+        "name": "fee",
+        "type": "uint256"
       }
     ],
     "stateMutability": "nonpayable",
@@ -139,6 +144,19 @@
       }
     ],
     "name": "itemIds",
+    "outputs": [
+      {
+        "internalType": "uint256",
+        "name": "",
+        "type": "uint256"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [],
+    "name": "marketplaceFee",
     "outputs": [
       {
         "internalType": "uint256",
