@@ -48,7 +48,7 @@ Thumbs.db
 coverage
 coverage.json
 typechain
-data
+/data/*
 /data/abi/*
 
 #Hardhat files

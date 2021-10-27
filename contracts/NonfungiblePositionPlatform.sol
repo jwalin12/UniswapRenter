@@ -51,7 +51,7 @@ contract NonfungiblePositionPlatform is
     /**
     Returns array of all item Ids
      */
-    function getAllItemIds() public returns (uint256[] memory) {
+    function getAllItemIds() external view returns (uint256[] memory) {
         return itemIds;
     }
 
@@ -196,5 +196,6 @@ contract NonfungiblePositionPlatform is
             itemIds[itemIdToIndex[tokenId]] = itemIds[itemIds.length - 1]; 
         }
         itemIds.pop();
+        delete(itemIdToIndex[tokenId]);
     }
 }
