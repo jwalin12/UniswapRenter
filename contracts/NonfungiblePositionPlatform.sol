@@ -44,8 +44,13 @@ contract NonfungiblePositionPlatform is
     Sets owner of new smart contract.
      */
     function setOwner(address payable newOwner) public {
-        require(msg.sender == _owner, "You are not the owner!");
+        require(msg.sender == _owner, "Unauthorized action");
         _owner = newOwner;
+    }
+
+    function changeFee(uint256 fee) public {
+        require(msg.sender == _owner, "Unauthorized action");
+        marketplaceFee = fee;
     }
 
     /**
