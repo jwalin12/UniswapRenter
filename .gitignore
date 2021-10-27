@@ -54,3 +54,6 @@ typechain
 #Hardhat files
 cache
 artifacts
+
+#config file(holds private key)
+hardhat.config.ts
