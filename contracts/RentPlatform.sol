@@ -11,7 +11,7 @@ import "utils/structs/tokenAddresses.sol";
 
 /// @title NFT positions
 /// @notice Wraps Uniswap V3 positions in the ERC721 non-fungible token interface
-contract NonfungiblePositionPlatform is
+contract RentPlatform is
     Multicall,
     IERC721Receiver
 {
@@ -186,7 +186,6 @@ contract NonfungiblePositionPlatform is
         RentInfo memory rentInfo = itemIdToRentInfo[tokenId];
         require(block.timestamp >= rentInfo.expiryDate, "the lease has not expired yet!");
         require(msg.sender == rentInfo.originalOwner, "you are not the original owner!");
-        delete(itemIdToRentInfo[tokenId]);
         //return control to original owner
         address owner = rentInfo.originalOwner;
         removeItem(tokenId);

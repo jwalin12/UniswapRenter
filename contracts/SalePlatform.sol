@@ -12,12 +12,11 @@ import "@uniswap/v3-periphery/contracts/base/Multicall.sol";
 
 /// @title NFT positions
 /// @notice Wraps Uniswap V3 positions in the ERC721 non-fungible token interface
-contract NonfungiblePositionPlatform is
+contract SalePlatform is
     Multicall,
     IERC721Receiver
 {
     INonfungiblePositionManager public immutable UniswapNFTManager =  INonfungiblePositionManager(0xC36442b4a4522E871399CD717aBDD847Ab11FE88);
-
 
     struct SaleInfo {
         address payable originalOwner;
@@ -73,7 +72,7 @@ contract NonfungiblePositionPlatform is
         itemIdToSaleInfo[tokenId] = SaleInfo({
             tokenId: tokenId,
             originalOwner: msg.sender,
-            price: price,
+            price: price
         });
     }
 
@@ -91,11 +90,11 @@ contract NonfungiblePositionPlatform is
     }
     
     //Original Owner removes NFT from sale availability
-    function removeNFTFoSale(uint256 tokenId) external {
+    function removeNFTForSale(uint256 tokenId) external {
         SaleInfo memory saleInfo = itemIdToSaleInfo[tokenId];
         require(saleInfo.originalOwner == msg.sender, "you do not own this NFT!");
         UniswapNFTManager.safeTransferFrom(address(this),saleInfo.originalOwner, tokenId);
-        removeItemForSale(tokenId);
+        removeItem(tokenId);
     }
 
     //utility function that pays out NFT to receiver.
@@ -114,13 +113,13 @@ contract NonfungiblePositionPlatform is
         require(msg.value >= saleInfo.price, "Insufficient funds");
         require(msg.sender != saleInfo.originalOwner,  "You already own this NFT!");
         saleInfo.originalOwner.transfer(saleInfo.price - saleInfo.price * marketplaceFee / 10000); 
-        removeItemForSale(tokenId);
+        removeItem(tokenId);
 
     }
 
     //Original Owner can Withdraw fees earned from NFT while it is on sale
     function withdrawFees(uint256 tokenId) external {
-        SaleInfo memory SaleInfo = itemIdToSaleInfo[tokenId];
+        SaleInfo memory saleInfo = itemIdToSaleInfo[tokenId];
         require(msg.sender == saleInfo.originalOwner, "you do not own this asset!");
         //call collect and send back to seller
         payoutNFT(tokenId, saleInfo.originalOwner);
@@ -131,10 +130,9 @@ contract NonfungiblePositionPlatform is
     function returnNFTToOwner(uint256 tokenId) external {
         SaleInfo memory saleInfo = itemIdToSaleInfo[tokenId];
         require(msg.sender == saleInfo.originalOwner, "you are not the original owner!");
-        delete(itemIdToSaleInfo[tokenId]);
         //return control to original owner
         address owner = saleInfo.originalOwner;
-        removeItemForSale(tokenId);(tokenId);
+        removeItem(tokenId);(tokenId);
         UniswapNFTManager.safeTransferFrom(address(this), owner, tokenId);
 
     }
