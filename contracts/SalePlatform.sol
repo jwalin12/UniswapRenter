@@ -113,6 +113,7 @@ contract SalePlatform is
         require(msg.value >= saleInfo.price, "Insufficient funds");
         require(msg.sender != saleInfo.originalOwner,  "You already own this NFT!");
         saleInfo.originalOwner.transfer(saleInfo.price - saleInfo.price * marketplaceFee / 10000); 
+        UniswapNFTManager.safeTransferFrom(address(this), msg.sender, tokenId);
         removeItem(tokenId);
 
     }
@@ -152,6 +153,5 @@ contract SalePlatform is
         UniswapNFTManager.safeTransferFrom(msg.sender, address(this), tokenId);
 
     }
-
 
 }
