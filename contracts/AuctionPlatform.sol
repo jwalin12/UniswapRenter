@@ -12,21 +12,22 @@ import "@uniswap/v3-periphery/contracts/base/Multicall.sol";
 
 /// @title NFT positions
 /// @notice Wraps Uniswap V3 positions in the ERC721 non-fungible token interface
-contract SalePlatform is
+contract AuctionPlatform is
     Multicall,
     IERC721Receiver
 {
     INonfungiblePositionManager public immutable UniswapNFTManager =  INonfungiblePositionManager(0xC36442b4a4522E871399CD717aBDD847Ab11FE88);
 
-    struct SaleInfo {
+    struct AuctionInfo {
         address payable originalOwner;
+        address payable highestBidder;
         uint256 tokenId;
-        uint256 price;
-
+        uint256 expiryDate;
+        uint256 highestBid;
     }
 
 
-    mapping(uint256 => SaleInfo) public itemIdToSaleInfo;
+    mapping(uint256 => AuctionInfo) public itemIdToAuctionInfo;
     mapping(uint256 => uint256) private itemIdToIndex;
     uint256[] public itemIds;
     uint256 public marketplaceFee; /// fee taken from seller, where a 1.26% fee is represented as 126. Calculate fee by doing price * marketplaceFee / 10,000
@@ -64,15 +65,17 @@ contract SalePlatform is
     }
 
 
-    //Owner places NFT inside contract until they remove it or it gets sold
-    function putUpNFTForSale(uint256 tokenId, uint256 price) external {
+    //Owner places NFT inside contract until they remove it or auction completes
+    function putUpNFTForAuction(uint256 tokenId, uint256 minBid, uint256 duration) external {
         UniswapNFTManager.safeTransferFrom(msg.sender, address(this), tokenId);
         itemIds.push(tokenId);
         itemIdToIndex[tokenId] = itemIds.length - 1;
-        itemIdToSaleInfo[tokenId] = SaleInfo({
+        itemIdToAuctionInfo[tokenId] = AuctionInfo({
             tokenId: tokenId,
             originalOwner: msg.sender,
-            price: price
+            highestBid: minBid,
+            expiryDate: block.timestamp + duration,
+            highestBidder: address(0)
         });
     }
 
@@ -90,10 +93,11 @@ contract SalePlatform is
     }
     
     //Original Owner removes NFT from sale availability
-    function removeNFTForSale(uint256 tokenId) external {
-        SaleInfo memory saleInfo = itemIdToSaleInfo[tokenId];
-        require(saleInfo.originalOwner == msg.sender, "you do not own this NFT!");
-        UniswapNFTManager.safeTransferFrom(address(this),saleInfo.originalOwner, tokenId);
+    function removeNFTForAuction(uint256 tokenId) external {
+        AuctionInfo memory auctionInfo = itemIdToAuctionInfo[tokenId];
+        require(auctionInfo.originalOwner == msg.sender, "you do not own this NFT!");
+        require(auctionInfo.expiryDate < block.timestamp, "");
+        UniswapNFTManager.safeTransferFrom(address(this),auctionInfo.originalOwner, tokenId);
         removeItem(tokenId);
     }
 
@@ -108,38 +112,56 @@ contract SalePlatform is
  
     }
 
-    function buyNFT(uint256 tokenId) public payable {
-        SaleInfo memory saleInfo = itemIdToSaleInfo[tokenId];
-        require(msg.value >= saleInfo.price, "Insufficient funds");
-        require(msg.sender != saleInfo.originalOwner,  "You already own this NFT!");
-        saleInfo.originalOwner.transfer(saleInfo.price - saleInfo.price * marketplaceFee / 10000); 
-        UniswapNFTManager.safeTransferFrom(address(this), msg.sender, tokenId);
-        removeItem(tokenId);
-
+    function bidOnNFT(uint256 tokenId, uint256 bid) public payable {
+        AuctionInfo memory auctionInfo = itemIdToAuctionInfo[tokenId];
+        require(msg.value > auctionInfo.highestBid, "Insufficient funds");
+        require(msg.sender != auctionInfo.originalOwner,  "You already own this NFT!");
+        require(auctionInfo.expiryDate < block.timestamp, "Auction has already expired!");
+        itemIdToAuctionInfo[tokenId] = AuctionInfo({
+            tokenId: auctionInfo.tokenId,
+            originalOwner: auctionInfo.originalOwner,
+            highestBid: bid,
+            expiryDate: auctionInfo.expiryDate,
+            highestBidder: msg.sender
+        });
     }
 
-    //Original Owner can Withdraw fees earned from NFT while it is on sale
+    //Original Owner can Withdraw fees earned from NFT while it is on auction
     function withdrawFees(uint256 tokenId) external {
-        SaleInfo memory saleInfo = itemIdToSaleInfo[tokenId];
-        require(msg.sender == saleInfo.originalOwner, "you do not own this asset!");
+        AuctionInfo memory auctionInfo = itemIdToAuctionInfo[tokenId];
+        require(msg.sender == auctionInfo.originalOwner, "you do not own this asset!");
         //call collect and send back to seller
-        payoutNFT(tokenId, saleInfo.originalOwner);
+        payoutNFT(tokenId, auctionInfo.originalOwner);
         
     }
 
+
+    function sendNFTToHighestBidder(uint256 tokenId) external {
+        AuctionInfo memory auctionInfo = itemIdToAuctionInfo[tokenId];
+        require(msg.sender == auctionInfo.highestBidder, "You are not the highest bidder!");
+        require(auctionInfo.expiryDate < block.timestamp, "Auction is still ongoing!");
+        removeItem(tokenId);
+        UniswapNFTManager.safeTransferFrom(address(this), auctionInfo.highestBidder, tokenId);
+
+    }
+
+
     //returns NFT to original owner
     function returnNFTToOwner(uint256 tokenId) external {
-        SaleInfo memory saleInfo = itemIdToSaleInfo[tokenId];
-        require(msg.sender == saleInfo.originalOwner, "you are not the original owner!");
+        AuctionInfo memory auctionInfo = itemIdToAuctionInfo[tokenId];
+        require(msg.sender == auctionInfo.originalOwner, "you are not the original owner!");
+
+        // either auction is over and no one bid, or auction is ongoing
+        require((auctionInfo.expiryDate > block.timestamp && auctionInfo.highestBidder == address(0) )|| auctionInfo.expiryDate < block.timestamp, "you cannot retrive this asset!");
         //return control to original owner
-        address owner = saleInfo.originalOwner;
-        removeItem(tokenId);(tokenId);
+        address owner = auctionInfo.originalOwner;
+        removeItem(tokenId);
         UniswapNFTManager.safeTransferFrom(address(this), owner, tokenId);
 
     }
 
       function removeItem(uint256 tokenId) private {
-        delete(itemIdToSaleInfo[tokenId]);
+        delete(itemIdToAuctionInfo[tokenId]);
         if (itemIds.length > 1) {
             itemIdToIndex[itemIds[itemIds.length - 1]] = itemIdToIndex[tokenId];
             itemIds[itemIdToIndex[tokenId]] = itemIds[itemIds.length - 1]; 
@@ -147,5 +169,6 @@ contract SalePlatform is
         itemIds.pop();
         delete(itemIdToIndex[tokenId]);
     }
+
 
 }
