@@ -92,15 +92,6 @@ contract AuctionPlatform is
         msg.sender.transfer(address(this).balance);
     }
     
-    //Original Owner removes NFT from sale availability
-    function removeNFTForAuction(uint256 tokenId) external {
-        AuctionInfo memory auctionInfo = itemIdToAuctionInfo[tokenId];
-        require(auctionInfo.originalOwner == msg.sender, "you do not own this NFT!");
-        require(auctionInfo.expiryDate < block.timestamp, "");
-        UniswapNFTManager.safeTransferFrom(address(this),auctionInfo.originalOwner, tokenId);
-        removeItem(tokenId);
-    }
-
     //utility function that pays out NFT to receiver.
     function payoutNFT(uint256 tokenId, address payoutReceiver) private {      
         (uint256 token0amt, uint256 token1amt) = UniswapNFTManager.collect(INonfungiblePositionManager.CollectParams({
@@ -112,16 +103,16 @@ contract AuctionPlatform is
  
     }
 
-    function bidOnNFT(uint256 tokenId, uint256 bid) public payable {
+    function bidOnNFT(uint256 tokenId) public payable {
         AuctionInfo memory auctionInfo = itemIdToAuctionInfo[tokenId];
         require(msg.value > auctionInfo.highestBid, "Insufficient funds");
         require(msg.sender != auctionInfo.originalOwner,  "You already own this NFT!");
-        require(auctionInfo.expiryDate < block.timestamp, "Auction has already expired!");
-        itemIdToAuctionInfo[tokenId] = AuctionInfo({
+        require(auctionInfo.expiryDate >  block.timestamp, "Auction has already expired!");
+        itemIdToAuctionInfo[auctionInfo.tokenId] = AuctionInfo({
             tokenId: auctionInfo.tokenId,
-            originalOwner: auctionInfo.originalOwner,
-            highestBid: bid,
             expiryDate: auctionInfo.expiryDate,
+            highestBid: msg.value,
+            originalOwner: auctionInfo.originalOwner,
             highestBidder: msg.sender
         });
     }
@@ -135,14 +126,13 @@ contract AuctionPlatform is
         
     }
 
-
     function sendNFTToHighestBidder(uint256 tokenId) external {
         AuctionInfo memory auctionInfo = itemIdToAuctionInfo[tokenId];
         require(msg.sender == auctionInfo.highestBidder, "You are not the highest bidder!");
         require(auctionInfo.expiryDate < block.timestamp, "Auction is still ongoing!");
+        payoutNFT(tokenId, auctionInfo.originalOwner);
         removeItem(tokenId);
         UniswapNFTManager.safeTransferFrom(address(this), auctionInfo.highestBidder, tokenId);
-
     }
 
 
@@ -160,7 +150,7 @@ contract AuctionPlatform is
 
     }
 
-      function removeItem(uint256 tokenId) private {
+    function removeItem(uint256 tokenId) private {
         delete(itemIdToAuctionInfo[tokenId]);
         if (itemIds.length > 1) {
             itemIdToIndex[itemIds[itemIds.length - 1]] = itemIdToIndex[tokenId];
