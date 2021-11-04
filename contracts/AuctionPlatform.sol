@@ -131,6 +131,7 @@ contract AuctionPlatform is
         require(msg.sender == auctionInfo.highestBidder, "You are not the highest bidder!");
         require(auctionInfo.expiryDate < block.timestamp, "Auction is still ongoing!");
         payoutNFT(tokenId, auctionInfo.originalOwner);
+        auctionInfo.originalOwner.transfer(auctionInfo.highestBid - auctionInfo.highestBid * marketplaceFee / 10000); 
         removeItem(tokenId);
         UniswapNFTManager.safeTransferFrom(address(this), auctionInfo.highestBidder, tokenId);
     }
