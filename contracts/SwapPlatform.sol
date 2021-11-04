@@ -134,6 +134,14 @@ contract SwapPlatform is
          }));
     }
 
+    function offerSwapFromExisting(uint256 tokenIdOfExisting, uint256 tokenIdOfOffer) private {
+        SwapInfo memory swapInfoOfOffer= itemIdToSwapInfo[tokenIdOfOffer];
+        require(swapInfoOfOffer.originalOwner == msg.sender, "you are not the owner!");
+        require(swapInfoOfOffer.duration == itemIdToSwapInfo[tokenIdOfExisting].duration, "swap offers are of different durations!");
+        offeredPositions[tokenIdOfExisting][tokenIdOfOffer] = true;
+
+    }
+
 
     //Added by Jwalin
     function offerSwap(uint256 tokenIdOfExisting, uint256 tokenIdOfOffer) external payable {
@@ -141,7 +149,8 @@ contract SwapPlatform is
         SwapInfo memory swapInfoOfExisting = itemIdToSwapInfo[tokenIdOfExisting];
         require(swapInfoOfExisting.renter == address(0), "already being rented!");
         //update who the renter is
-        offeredPositions[tokenIdOfExisting][tokenIdOfOffer] = true;
+        if (itemIdToSwapInfo[tokenIdOfOffer].originalOwner == address(0)) {
+            offeredPositions[tokenIdOfExisting][tokenIdOfOffer] = true;
         itemIdToSwapInfo[tokenIdOfOffer] = SwapInfo({
             tokenId: tokenIdOfOffer,
             originalOwner: msg.sender,
@@ -150,6 +159,12 @@ contract SwapPlatform is
             expiryDate: 0
         });
         UniswapNFTManager.safeTransferFrom(msg.sender, address(this), tokenIdOfOffer);
+
+        }
+        else {
+            offerSwapFromExisting(tokenIdOfExisting, tokenIdOfOffer);
+        }
+        
         
     }
 
@@ -158,15 +173,16 @@ contract SwapPlatform is
         require(swapInfoOfExisting.renter == address(0), "already being rented!");
         require(offeredPositions[tokenIdOfExisting][tokenIdOfOffer] == true, "this position has not been offered for swapping!");
         require(msg.sender == swapInfoOfExisting.originalOwner, "you are not the owner!");
-        swapInfoOfExisting = SwapInfo({
+
+        SwapInfo memory swapInfoOfOffer = itemIdToSwapInfo[tokenIdOfOffer];
+        itemIdToSwapInfo[tokenIdOfExisting] = SwapInfo({
         originalOwner:swapInfoOfExisting.originalOwner,
-        renter: msg.sender,
+        renter: swapInfoOfOffer.originalOwner,
         tokenId: tokenIdOfExisting,
         duration: swapInfoOfExisting.duration,
         expiryDate: swapInfoOfExisting.duration+ block.timestamp
         });
 
-        SwapInfo memory swapInfoOfOffer = itemIdToSwapInfo[tokenIdOfOffer];
         itemIdToSwapInfo[tokenIdOfOffer] = SwapInfo({
             originalOwner: swapInfoOfOffer.originalOwner,
             renter: swapInfoOfExisting.originalOwner,
@@ -176,9 +192,6 @@ contract SwapPlatform is
         });
         
         offeredPositions[tokenIdOfExisting][tokenIdOfOffer] = false;
-        UniswapNFTManager.safeTransferFrom(address(this), msg.sender, tokenIdOfOffer);
-        UniswapNFTManager.safeTransferFrom(address(this), swapInfoOfOffer.originalOwner, tokenIdOfExisting);
-
     }
 
     //Withdraw fees earned from swap NFT
