@@ -9,6 +9,9 @@ import "@openzeppelin/contracts/token/ERC721/IERC721Receiver.sol";
 import "@uniswap/v3-periphery/contracts/interfaces/INonfungiblePositionManager.sol";
 import "@uniswap/v3-periphery/contracts/base/Multicall.sol";
 
+import "utils/structs/tokenAddresses.sol";
+
+
 
 /// @title NFT positions
 /// @notice Wraps Uniswap V3 positions in the ERC721 non-fungible token interface
@@ -28,6 +31,7 @@ contract SalePlatform is
 
     mapping(uint256 => SaleInfo) public itemIdToSaleInfo;
     mapping(uint256 => uint256) private itemIdToIndex;
+    mapping(uint256 => TokenAddresses) public itemIdToTokenAddrs;
     uint256[] public itemIds;
     uint256 public marketplaceFee; /// fee taken from seller, where a 1.26% fee is represented as 126. Calculate fee by doing price * marketplaceFee / 10,000
     address public _owner;
@@ -63,10 +67,32 @@ contract SalePlatform is
         return this.onERC721Received.selector;
     }
 
+        /**
+    Caches token Addresses on chain */
+    function cacheTokenAddrs(uint256 tokenId) private {
+        (
+            ,
+            ,
+            address token0,
+            address token1,
+            ,
+            ,
+            ,
+            ,
+            ,
+            ,
+            ,
+           
+        ) = UniswapNFTManager.positions(tokenId);
+        itemIdToTokenAddrs[tokenId] = TokenAddresses({ token0Addr: token0, token1Addr: token1 });
+        
+    }
+
 
     //Owner places NFT inside contract until they remove it or it gets sold
     function putUpNFTForSale(uint256 tokenId, uint256 price) external {
         UniswapNFTManager.safeTransferFrom(msg.sender, address(this), tokenId);
+        cacheTokenAddrs(tokenId);
         itemIds.push(tokenId);
         itemIdToIndex[tokenId] = itemIds.length - 1;
         itemIdToSaleInfo[tokenId] = SaleInfo({
