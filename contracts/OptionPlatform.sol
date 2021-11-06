@@ -6,6 +6,8 @@ import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 import "@openzeppelin/contracts/token/ERC721/IERC721Receiver.sol";
 import "@uniswap/v3-periphery/contracts/interfaces/INonfungiblePositionManager.sol";
 import "@uniswap/v3-periphery/contracts/base/Multicall.sol";
+import "@uniswap/v3-core/contracts/libraries/TickMath.sol";
+
 
 import "utils/structs/tokenAddresses.sol";
 
@@ -18,22 +20,26 @@ contract OptionPlatform is
     INonfungiblePositionManager public immutable UniswapNFTManager =  INonfungiblePositionManager(0xC36442b4a4522E871399CD717aBDD847Ab11FE88);
 
   struct OptionInfo {
+        address payable originalOwner;
         address payable currentOwner;
         address tokenLong;
         address paymentToken;
         uint256 tokenId;
-        uint256 price;
+        uint160 costToexcersize; 
+        uint256 premium; // in ETH
         uint256 expiryDate;
+        bool forSale;
     } 
-
 
     mapping(uint256 => OptionInfo) public itemIdToOptionInfo;
     mapping(uint256 => uint256) private itemIdToIndex;
-    mapping(uint256 => bool) private itemIdForSale;
     mapping(uint256 => TokenAddresses) public itemIdToTokenAddrs;
+    mapping(address => uint256) tokenBalances;
     uint256[] public itemIds;
-    uint256 public marketplaceFee; /// fee taken from seller, where a 1.26% fee is represented as 126. Calculate fee by doing price * marketplaceFee / 10,000
+    uint256 public marketplaceFee; /// fee taken from seller, where a 1.26% fee is represented as 126. Calculate fee by doing premium * marketplaceFee / 10,000
     address public _owner;
+    address[] tokens;
+    mapping(address=> bool) tokensExist;
 
     constructor(address payable currOwner, uint256 fee) {
         _owner = currOwner;
@@ -83,79 +89,140 @@ contract OptionPlatform is
             ,
            
         ) = UniswapNFTManager.positions(tokenId);
+        if (!tokensExist[token0]) {
+            tokens.push(token0);
+            tokensExist[token0] = true;
+
+        }
+        if (!tokensExist[token1]){
+            tokens.push(token1);
+            tokensExist[token1] = true;
+        }
+        
+        
         itemIdToTokenAddrs[tokenId] = TokenAddresses({ token0Addr: token0, token1Addr: token1 });
         
     }
 
 
-    //price is in the units of the currency that the seller is being paid in. The opposite of the currency to long.
-    function createLongOption(uint256 tokenId, uint256 price, uint256 duration, address tokenToLong) external {
+
+    //For now we will use the lower end of the price range
+    function getExcersizePrice(uint256 tokenId, address tokenLong) private returns (uint160) {
+
+         (
+            ,
+            ,
+            address token0,
+            address token1,
+            ,
+            int24 tickLower,
+            ,
+            uint128 liquidity,
+            ,
+            ,
+            ,
+           
+        ) = UniswapNFTManager.positions(tokenId);
+
+    
+    
+        
+    uint160 sqrtRatio = TickMath.getSqrtRatioAtTick(tickLower); //sqrt of the ratio of the two assets (token1/token0)
+
+    if (token0 == tokenLong) {
+        //if you are longing token0 you want amt in terms of token1.
+        return sqrtRatio * liquidity;
+        }
+    if (token0 == tokenLong) {
+        //if you are longing token1 the price is the amount of token0s if you are fully in token0
+        return (1/sqrtRatio) * liquidity;
+        }
+        return 0;
+    }
+
+
+    //premium is in the units of the currency that the seller is being paid in. The opposite of the currency to long.
+    function createLongOption(uint256 tokenId, uint256 premium, uint256 duration, address tokenLong) external {
         UniswapNFTManager.safeTransferFrom(msg.sender, address(this), tokenId);
-        cacheTokenAddrs(tokenId);
-        itemIds.push(tokenId);
-        itemIdToIndex[tokenId] = itemIds.length - 1;
-        TokenAddresses memory tokenAddrs = itemIdToTokenAddrs[tokenId];
-        address tokenToPayIn;
-        require(tokenToLong == tokenAddrs.token0Addr || tokenToLong == tokenAddrs.token1Addr, "token to long is not in the position");
-        if (tokenToLong == tokenAddrs.token0Addr) {
-            tokenToPayIn = tokenAddrs.token1Addr;
-        } else if (tokenToLong == tokenAddrs.token1Addr) {
-            tokenToPayIn = tokenAddrs.token0Addr;
-        } 
-        itemIdToOptionInfo[tokenId] = OptionInfo({
-            tokenId: tokenId,
-            currentOwner: msg.sender,
-            price: price,
-            expiryDate: block.timestamp + duration,
-            tokenLong: tokenToLong,
-            paymentToken: tokenToPayIn
-        });
+        //cacheTokenAddrs(tokenId);
+        // itemIds.push(tokenId);
+        // itemIdToIndex[tokenId] = itemIds.length - 1;
+        // TokenAddresses memory tokenAddrs = itemIdToTokenAddrs[tokenId];
+        // address tokenToPayIn = address(0);
+        // require(tokenLong == tokenAddrs.token0Addr || tokenLong == tokenAddrs.token1Addr, "token to long is not in the position");
+        // if (tokenLong == tokenAddrs.token0Addr) {
+        //     tokenToPayIn = tokenAddrs.token1Addr;
+        // } else if (tokenLong == tokenAddrs.token1Addr) {
+        //     tokenToPayIn = tokenAddrs.token0Addr;
+        // } else {
+        //     tokenToPayIn = address(0);
+        // }
+
+        //uint160 excersizePrice = getExcersizePrice(tokenId, tokenLong);
+
+        // itemIdToOptionInfo[tokenId] = OptionInfo({
+        //     originalOwner: msg.sender,
+        //     tokenId: tokenId,
+        //     currentOwner: msg.sender,
+        //     premium: premium,
+        //     expiryDate: block.timestamp + duration,
+        //     costToexcersize: 0,
+        //     tokenLong: tokenLong,
+        //     paymentToken: tokenToPayIn,
+        //     forSale: true
+        // });
 
     }
 
     function putUpOptionForSale(uint256 tokenId) public {
         OptionInfo memory optionInfo = itemIdToOptionInfo[tokenId];
         require(msg.sender == optionInfo.currentOwner, "you are not the owner!");
-        itemIdForSale[tokenId] = true;
+        itemIdToOptionInfo[tokenId].forSale = true;
     }
 
     function removeOptionForSale(uint256 tokenId) public {
         OptionInfo memory optionInfo = itemIdToOptionInfo[tokenId];
         require(msg.sender == optionInfo.currentOwner, "you are not the owner!");
-        itemIdForSale[tokenId] = false;
+        itemIdToOptionInfo[tokenId].forSale = false;
     }
 
 
 
-    function changeOptionPrice(uint256 tokenId, uint256 newPrice) external {
+    function changeOptionPremium(uint256 tokenId, uint256 newpremium) external {
         OptionInfo memory optionInfo = itemIdToOptionInfo[tokenId];
         require(msg.sender == optionInfo.currentOwner, "you are not the owner!");
         itemIdToOptionInfo[tokenId] = OptionInfo({
             tokenId: tokenId,
             currentOwner: optionInfo.currentOwner,
-            price: newPrice,
+            originalOwner: optionInfo.originalOwner,
+            premium: newpremium,
             expiryDate: optionInfo.expiryDate,
             tokenLong: optionInfo.tokenLong,
-            paymentToken: optionInfo.paymentToken
+            costToexcersize: optionInfo.costToexcersize,
+            paymentToken: optionInfo.paymentToken,
+            forSale: optionInfo.forSale
         });
     }
 
 
-    function buyOption(uint256 tokenId) payable external{
+    function buyOption(uint256 tokenId) payable external {
         OptionInfo memory optionInfo = itemIdToOptionInfo[tokenId];
-        require(itemIdForSale[tokenId], "this option is not for sale!");
+        require(optionInfo.forSale, "this option is not for sale!");
         require(msg.sender != optionInfo.currentOwner, "you already own this option!");
         require(block.timestamp <= optionInfo.expiryDate, "option has already expired!");
-        ERC20(optionInfo.paymentToken).transferFrom(msg.sender, optionInfo.currentOwner, optionInfo.price);
+        require(msg.value == optionInfo.premium, "not enough funds!");
+        itemIdToOptionInfo[tokenId].currentOwner.transfer(optionInfo.premium - optionInfo.premium * marketplaceFee / 10000);
         itemIdToOptionInfo[tokenId] = OptionInfo({
             tokenId: tokenId,
             currentOwner: msg.sender,
-            price: optionInfo.price,
+            premium: optionInfo.premium,
+            originalOwner: optionInfo.originalOwner,
             expiryDate: optionInfo.expiryDate,
             tokenLong: optionInfo.tokenLong,
-            paymentToken: optionInfo.paymentToken
+            costToexcersize: optionInfo.costToexcersize,
+            paymentToken: optionInfo.paymentToken,
+            forSale: false
         });
-        itemIdForSale[tokenId] = false;
 
 
     }
@@ -163,9 +230,12 @@ contract OptionPlatform is
     function excersizeOption(uint256 tokenId) public {
         OptionInfo memory optionInfo = itemIdToOptionInfo[tokenId];
         require(msg.sender == optionInfo.currentOwner, "you are not the owner!");
-        UniswapNFTManager.safeTransferFrom(msg.sender, optionInfo.currentOwner, tokenId);
+        ERC20(optionInfo.paymentToken).transferFrom(msg.sender, optionInfo.originalOwner, optionInfo.costToexcersize - optionInfo.costToexcersize * marketplaceFee / 10000);
+        ERC20(optionInfo.paymentToken).transferFrom(msg.sender, address(this), optionInfo.costToexcersize * marketplaceFee / 10000);
+        UniswapNFTManager.safeTransferFrom(address(this), optionInfo.currentOwner, tokenId);
+        tokenBalances[optionInfo.paymentToken] = optionInfo.costToexcersize * marketplaceFee / 10000;
         removeItem(tokenId);
-
+    
     }
 
 
@@ -181,6 +251,17 @@ contract OptionPlatform is
         require(msg.sender == _owner, "You are not the owner!");
         msg.sender.transfer(address(this).balance);
     }
+    function withdrawAllTokens() public {
+        require(msg.sender == _owner, "You are not the owner!");
+        for(uint i = 0; i < tokens.length; i++) {
+            address currToken = tokens[i];
+            if (tokenBalances[currToken] > 0) {
+                ERC20(currToken).transferFrom(address(this),_owner,tokenBalances[currToken]);
+            }
+            tokenBalances[currToken] = 0;
+            
+        }
+    }
     
 
     //utility function that pays out NFT to receiver.
@@ -194,7 +275,7 @@ contract OptionPlatform is
           
     }
 
-    //Withdraw fees earned from rented NFT
+    //Withdraw fees earned from position
     function withdrawFees(uint256 tokenId) external {
         //needs to check that time to rent has not passed
         OptionInfo memory optionInfo = itemIdToOptionInfo[tokenId];
@@ -207,7 +288,6 @@ contract OptionPlatform is
 
     function removeItem(uint256 tokenId) private {
         delete(itemIdToOptionInfo[tokenId]);
-        delete(itemIdForSale[tokenId]);
         if (itemIds.length > 1) {
             itemIdToIndex[itemIds[itemIds.length - 1]] = itemIdToIndex[tokenId];
             itemIds[itemIdToIndex[tokenId]] = itemIds[itemIds.length - 1]; 
