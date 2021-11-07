@@ -140,7 +140,6 @@ contract OptionPlatform is
     }
 
     
-
     }
 
     //FOR TESTING ONLY TODO: REMOVE WHEN DONE
@@ -243,8 +242,8 @@ contract OptionPlatform is
         require(msg.sender == optionInfo.currentOwner, "you are not the owner!");
         ERC20(optionInfo.paymentToken).transferFrom(msg.sender, optionInfo.originalOwner, optionInfo.costToExcersize - optionInfo.costToExcersize * marketplaceFee / 10000);
         ERC20(optionInfo.paymentToken).transferFrom(msg.sender, address(this), optionInfo.costToExcersize * marketplaceFee / 10000);
-        UniswapNFTManager.safeTransferFrom(address(this), optionInfo.currentOwner, tokenId);
-        tokenBalances[optionInfo.paymentToken] = optionInfo.costToExcersize * marketplaceFee / 10000;
+        UniswapNFTManager.safeTransferFrom(address(this),tokenBalances[optionInfo.paymentToken], tokenId);
+        tokenBalances[optionInfo.paymentToken] = tokenBalances[optionInfo.paymentToken]+ optionInfo.costToExcersize * marketplaceFee / 10000;
         removeItem(tokenId);
     
     }
