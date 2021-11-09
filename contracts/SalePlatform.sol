@@ -13,6 +13,7 @@ import "utils/structs/tokenAddresses.sol";
 
 
 
+
 /// @title NFT positions
 /// @notice Wraps Uniswap V3 positions in the ERC721 non-fungible token interface
 contract SalePlatform is
@@ -32,6 +33,7 @@ contract SalePlatform is
     mapping(uint256 => SaleInfo) public itemIdToSaleInfo;
     mapping(uint256 => uint256) private itemIdToIndex;
     mapping(uint256 => TokenAddresses) public itemIdToTokenAddrs;
+
     uint256[] public itemIds;
     uint256 public marketplaceFee; /// fee taken from seller, where a 1.26% fee is represented as 126. Calculate fee by doing price * marketplaceFee / 10,000
     address public _owner;
@@ -92,8 +94,8 @@ contract SalePlatform is
     //Owner places NFT inside contract until they remove it or it gets sold
     function putUpNFTForSale(uint256 tokenId, uint256 price) external {
         UniswapNFTManager.safeTransferFrom(msg.sender, address(this), tokenId);
-        cacheTokenAddrs(tokenId);
         itemIds.push(tokenId);
+        cacheTokenAddrs(tokenId);
         itemIdToIndex[tokenId] = itemIds.length - 1;
         itemIdToSaleInfo[tokenId] = SaleInfo({
             tokenId: tokenId,

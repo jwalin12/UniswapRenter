@@ -38,13 +38,15 @@ contract OptionPlatform is
         bool forSale;
     } 
 
-    mapping(uint256 => OptionInfo) public itemIdToOptionInfo;
+    mapping(uint256 => OptionInfo) private itemIdToOptionInfo;
     mapping(uint256 => uint256) private itemIdToIndex;
-    mapping(uint256 => TokenAddresses) public itemIdToTokenAddrs;
+    mapping(uint256 => uint256) private itemIdToOptionPayout;
+    mapping(uint256 => uint256) private itemIdToAmountToReturn;
+    mapping(uint256 => TokenAddresses) private itemIdToTokenAddrs;
     mapping(address => uint256) tokenBalances;
-    uint256[] public itemIds;
-    uint256 public marketplaceFee; /// fee taken from seller, where a 1.26% fee is represented as 126. Calculate fee by doing premium * marketplaceFee / 10,000
-    address public _owner;
+    uint256[] private itemIds;
+    uint256 private marketplaceFee; // fee taken from seller, where a 1.26% fee is represented as 126. Calculate fee by doing premium * marketplaceFee / 10,000
+    address private _owner;
     address[] tokens;
     mapping(address => bool) tokensExist;
 
@@ -150,9 +152,46 @@ contract OptionPlatform is
 
     }
 
+    function placeTokensInEscrow(uint256 tokenId, uint128 percentage, address tokenLong) private {
+        (
+            ,
+            ,
+            address token0,
+            address token1,
+            ,
+            ,
+            ,
+            uint128 liquidity,
+            ,
+            ,
+            ,
+           
+        ) = UniswapNFTManager.positions(tokenId);
+        require(percentage > 0 && percentage <= 100, "invalid percentage");
+
+
+        (uint256 token0Amt, uint256 token1Amt) = UniswapNFTManager.decreaseLiquidity(
+            INonfungiblePositionManager.DecreaseLiquidityParams({
+            tokenId: tokenId, 
+            liquidity: uint128(liquidity)* percentage/100,
+            amount0Min: 0,
+            amount1Min: 0,
+            deadline: block.timestamp + 100
+            }));
+        if (token0 == tokenLong) {
+            itemIdToOptionPayout[tokenId] = token0Amt;
+            itemIdToAmountToReturn[tokenId] = token1Amt;
+        }
+       if (token1 == tokenLong) {
+            itemIdToOptionPayout[tokenId] = token1Amt;
+            itemIdToAmountToReturn[tokenId] = token0Amt;
+        }
+
+    }
+
 
     //premium is in the units of the currency that the seller is being paid in. The opposite of the currency to long.
-    function createLongOption(uint256 tokenId, uint256 premium, uint256 duration, address tokenLong) external {
+    function createLongOption(uint256 tokenId, uint256 premium, uint256 duration, uint128 percentage, address tokenLong) external {
         UniswapNFTManager.safeTransferFrom(msg.sender, address(this), tokenId);
 
         cacheTokenAddrs(tokenId);
@@ -169,7 +208,7 @@ contract OptionPlatform is
         }
 
         uint256 costToExcersize = getExcersizePrice(tokenId, tokenLong);
-
+        placeTokensInEscrow(tokenId, percentage, tokenLong);
         itemIdToOptionInfo[tokenId] = OptionInfo({
             originalOwner: msg.sender,
             tokenId: tokenId,
@@ -181,6 +220,7 @@ contract OptionPlatform is
             paymentToken: tokenToPayIn,
             forSale: true
         });
+        
 
     }
 
@@ -240,10 +280,43 @@ contract OptionPlatform is
     function excersizeOption(uint256 tokenId) external {
         OptionInfo memory optionInfo = itemIdToOptionInfo[tokenId];
         require(msg.sender == optionInfo.currentOwner, "you are not the owner!");
-        ERC20(optionInfo.paymentToken).transferFrom(msg.sender, optionInfo.originalOwner, optionInfo.costToExcersize - optionInfo.costToExcersize * marketplaceFee / 10000);
-        ERC20(optionInfo.paymentToken).transferFrom(msg.sender, address(this), optionInfo.costToExcersize * marketplaceFee / 10000);
-        UniswapNFTManager.safeTransferFrom(address(this),tokenBalances[optionInfo.paymentToken], tokenId);
-        tokenBalances[optionInfo.paymentToken] = tokenBalances[optionInfo.paymentToken]+ optionInfo.costToExcersize * marketplaceFee / 10000;
+        uint256 feeCollected = optionInfo.costToExcersize * marketplaceFee / 10000; //TODO: use amt to return in fee calc?
+        uint256 amountDesired = optionInfo.costToExcersize - feeCollected + itemIdToAmountToReturn[tokenId];
+        uint256 amountTransferred;
+
+        ERC20(optionInfo.paymentToken).transferFrom(msg.sender, address(this), optionInfo.costToExcersize);
+        if (optionInfo.paymentToken == itemIdToTokenAddrs[tokenId].token0Addr) {
+            (, amountTransferred, ) = UniswapNFTManager.increaseLiquidity(
+                INonfungiblePositionManager.IncreaseLiquidityParams({
+                tokenId:tokenId,
+                amount0Desired: amountDesired,
+                amount1Desired: 0,
+                amount0Min: 0,
+                amount1Min: 0,
+                deadline: block.timestamp + 100
+
+            }));
+
+        }
+        if (optionInfo.paymentToken == itemIdToTokenAddrs[tokenId].token1Addr) {
+            (, ,amountTransferred) =  UniswapNFTManager.increaseLiquidity(
+                INonfungiblePositionManager.IncreaseLiquidityParams({
+                tokenId:tokenId,
+                amount0Desired: 0,
+                amount1Desired: amountDesired,
+                amount0Min: 0,
+                amount1Min: 0,
+                deadline: block.timestamp + 100
+
+            }));
+
+        }
+        if (amountTransferred != amountDesired) {
+            ERC20(optionInfo.paymentToken).transferFrom(msg.sender, optionInfo.originalOwner, amountDesired - amountTransferred);
+        }
+        ERC20(optionInfo.tokenLong).transferFrom(address(this), optionInfo.currentOwner, itemIdToOptionPayout[tokenId]- itemIdToOptionPayout[tokenId]*marketplaceFee/10000);
+        UniswapNFTManager.safeTransferFrom(address(this), optionInfo.originalOwner, tokenId);
+        tokenBalances[optionInfo.paymentToken] = tokenBalances[optionInfo.paymentToken]+ feeCollected;
         removeItem(tokenId);
     
     }
@@ -290,7 +363,7 @@ contract OptionPlatform is
         //needs to check that time to rent has not passed
         OptionInfo memory optionInfo = itemIdToOptionInfo[tokenId];
         require(block.timestamp < optionInfo.expiryDate, "the option has expired!");
-        require(msg.sender == optionInfo.currentOwner, "you do not own this option!");
+        require(msg.sender == optionInfo.originalOwner, "you do not own this position!");
         //call collect and send back to renter
         payoutNFT(tokenId, optionInfo.currentOwner);   
     }
