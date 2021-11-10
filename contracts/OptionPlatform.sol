@@ -32,19 +32,19 @@ contract OptionPlatform is
         address tokenLong;
         address paymentToken;
         uint256 tokenId;
-        uint256 costToExcersize; 
+        uint256 costToExercise; 
         uint256 premium; // in ETH
+        uint256 optionPayout; //in tokenLong
+        uint256 amountToReturn; //in paymentToken
         uint256 expiryDate;
         bool forSale;
     } 
 
-    mapping(uint256 => OptionInfo) private itemIdToOptionInfo;
-    mapping(uint256 => uint256) private itemIdToIndex;
-    mapping(uint256 => uint256) private itemIdToOptionPayout;
-    mapping(uint256 => uint256) private itemIdToAmountToReturn;
-    mapping(uint256 => TokenAddresses) private itemIdToTokenAddrs;
+    mapping(uint256 => OptionInfo) public itemIdToOptionInfo;
+    mapping(uint256 => uint256) public itemIdToIndex;
+    mapping(uint256 => TokenAddresses) public itemIdToTokenAddrs;
     mapping(address => uint256) tokenBalances;
-    uint256[] private itemIds;
+    uint256[] public itemIds;
     uint256 private marketplaceFee; // fee taken from seller, where a 1.26% fee is represented as 126. Calculate fee by doing premium * marketplaceFee / 10,000
     address private _owner;
     address[] tokens;
@@ -113,7 +113,7 @@ contract OptionPlatform is
 
 
     //For now we will use the lower end of the price range
-    function getExcersizePrice(uint256 tokenId, address tokenLong) private returns (uint256) {
+    function getExercisePrice(uint256 tokenId,uint128 percentage, address tokenLong) private returns (uint256) {
 
          (
             ,
@@ -133,11 +133,11 @@ contract OptionPlatform is
     uint160 sqrtRatioLower = TickMath.getSqrtRatioAtTick(tickLower); //sqrt of the ratio of the two assets (token1/token0)
     uint160 sqrtRatioUpper = TickMath.getSqrtRatioAtTick(tickUpper);
     if (tokenLong == token1) {
-        return LiquidityAmounts.getAmount0ForLiquidity(sqrtRatioLower, sqrtRatioUpper, liquidity);
+        return LiquidityAmounts.getAmount0ForLiquidity(sqrtRatioLower, sqrtRatioUpper, liquidity * percentage/100);
 
     } 
     if (tokenLong == token0) {
-        return LiquidityAmounts.getAmount1ForLiquidity(sqrtRatioLower, sqrtRatioUpper, liquidity);
+        return LiquidityAmounts.getAmount1ForLiquidity(sqrtRatioLower, sqrtRatioUpper, liquidity * percentage/100);
 
     }
 
@@ -152,7 +152,8 @@ contract OptionPlatform is
 
     }
 
-    function placeTokensInEscrow(uint256 tokenId, uint128 percentage, address tokenLong) private {
+    // returns in form (optionPayout, amountToReturn)
+    function placeTokensInEscrow(uint256 tokenId, uint128 percentage, address tokenLong) private returns (uint256, uint256) {
         (
             ,
             ,
@@ -178,14 +179,15 @@ contract OptionPlatform is
             amount1Min: 0,
             deadline: block.timestamp + 100
             }));
+        uint256 optionPayout;
         if (token0 == tokenLong) {
-            itemIdToOptionPayout[tokenId] = token0Amt;
-            itemIdToAmountToReturn[tokenId] = token1Amt;
+
+            return (token0Amt, token1Amt);
         }
        if (token1 == tokenLong) {
-            itemIdToOptionPayout[tokenId] = token1Amt;
-            itemIdToAmountToReturn[tokenId] = token0Amt;
+            return (token1Amt, token0Amt);
         }
+
 
     }
 
@@ -207,17 +209,19 @@ contract OptionPlatform is
 
         }
 
-        uint256 costToExcersize = getExcersizePrice(tokenId, tokenLong);
-        placeTokensInEscrow(tokenId, percentage, tokenLong);
+        uint256 costToExercise = getExercisePrice(tokenId, percentage, tokenLong);
+        (uint256 optionPayout, uint256 returnAmt) = placeTokensInEscrow(tokenId, percentage, tokenLong);
         itemIdToOptionInfo[tokenId] = OptionInfo({
             originalOwner: msg.sender,
             tokenId: tokenId,
             currentOwner: msg.sender,
             premium: premium,
             expiryDate: block.timestamp + duration,
-            costToExcersize: costToExcersize,
+            costToExercise: costToExercise,
             tokenLong: tokenLong,
             paymentToken: tokenToPayIn,
+            optionPayout: optionPayout,
+            amountToReturn: returnAmt,
             forSale: true
         });
         
@@ -241,17 +245,7 @@ contract OptionPlatform is
     function changeOptionPremium(uint256 tokenId, uint256 newpremium) external {
         OptionInfo memory optionInfo = itemIdToOptionInfo[tokenId];
         require(msg.sender == optionInfo.currentOwner, "you are not the owner!");
-        itemIdToOptionInfo[tokenId] = OptionInfo({
-            tokenId: tokenId,
-            currentOwner: optionInfo.currentOwner,
-            originalOwner: optionInfo.originalOwner,
-            premium: newpremium,
-            expiryDate: optionInfo.expiryDate,
-            tokenLong: optionInfo.tokenLong,
-            costToExcersize: optionInfo.costToExcersize,
-            paymentToken: optionInfo.paymentToken,
-            forSale: optionInfo.forSale
-        });
+        itemIdToOptionInfo[tokenId].premium = newpremium;
     }
 
 
@@ -261,30 +255,21 @@ contract OptionPlatform is
         require(msg.sender != optionInfo.currentOwner, "you already own this option!");
         require(block.timestamp <= optionInfo.expiryDate, "option has already expired!");
         require(msg.value == optionInfo.premium, "not enough funds!");
+        itemIdToOptionInfo[tokenId].currentOwner = msg.sender;
+        itemIdToOptionInfo[tokenId].forSale = false;
         itemIdToOptionInfo[tokenId].currentOwner.transfer(optionInfo.premium - optionInfo.premium * marketplaceFee / 10000);
-        itemIdToOptionInfo[tokenId] = OptionInfo({
-            tokenId: tokenId,
-            currentOwner: msg.sender,
-            premium: optionInfo.premium,
-            originalOwner: optionInfo.originalOwner,
-            expiryDate: optionInfo.expiryDate,
-            tokenLong: optionInfo.tokenLong,
-            costToExcersize: optionInfo.costToExcersize,
-            paymentToken: optionInfo.paymentToken,
-            forSale: false
-        });
-
+        
 
     }
 
-    function excersizeOption(uint256 tokenId) external {
+    function exerciseOption(uint256 tokenId) external {
         OptionInfo memory optionInfo = itemIdToOptionInfo[tokenId];
         require(msg.sender == optionInfo.currentOwner, "you are not the owner!");
-        uint256 feeCollected = optionInfo.costToExcersize * marketplaceFee / 10000; //TODO: use amt to return in fee calc?
-        uint256 amountDesired = optionInfo.costToExcersize - feeCollected + itemIdToAmountToReturn[tokenId];
+        uint256 feeCollected = optionInfo.costToExercise * marketplaceFee / 10000; //TODO: use amt to return in fee calc?
+        uint256 amountDesired = optionInfo.costToExercise - feeCollected + optionInfo.amountToReturn;
         uint256 amountTransferred;
 
-        ERC20(optionInfo.paymentToken).transferFrom(msg.sender, address(this), optionInfo.costToExcersize);
+        ERC20(optionInfo.paymentToken).transferFrom(msg.sender, address(this), optionInfo.costToExercise);
         if (optionInfo.paymentToken == itemIdToTokenAddrs[tokenId].token0Addr) {
             (, amountTransferred, ) = UniswapNFTManager.increaseLiquidity(
                 INonfungiblePositionManager.IncreaseLiquidityParams({
@@ -311,12 +296,13 @@ contract OptionPlatform is
             }));
 
         }
-        if (amountTransferred != amountDesired) {
+        if (amountTransferred < amountDesired) {
             ERC20(optionInfo.paymentToken).transferFrom(msg.sender, optionInfo.originalOwner, amountDesired - amountTransferred);
         }
-        ERC20(optionInfo.tokenLong).transferFrom(address(this), optionInfo.currentOwner, itemIdToOptionPayout[tokenId]- itemIdToOptionPayout[tokenId]*marketplaceFee/10000);
+        ERC20(optionInfo.tokenLong).transferFrom(address(this), optionInfo.currentOwner, optionInfo.optionPayout- optionInfo.optionPayout*marketplaceFee/10000);
         UniswapNFTManager.safeTransferFrom(address(this), optionInfo.originalOwner, tokenId);
         tokenBalances[optionInfo.paymentToken] = tokenBalances[optionInfo.paymentToken]+ feeCollected;
+        tokenBalances[optionInfo.tokenLong] = tokenBalances[optionInfo.tokenLong] + optionInfo.optionPayout*marketplaceFee/10000;
         removeItem(tokenId);
     
     }
@@ -374,8 +360,10 @@ contract OptionPlatform is
         if (itemIds.length > 1) {
             itemIdToIndex[itemIds[itemIds.length - 1]] = itemIdToIndex[tokenId];
             itemIds[itemIdToIndex[tokenId]] = itemIds[itemIds.length - 1]; 
+            
         }
         itemIds.pop();
         delete(itemIdToIndex[tokenId]);
+
     }
 }
