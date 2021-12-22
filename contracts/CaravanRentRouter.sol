@@ -2,18 +2,33 @@ pragma solidity =0.6.6;
 
 import '@uniswap/v2-core/contracts/interfaces/IUniswapV2Factory.sol';
 import '@uniswap/lib/contracts/libraries/TransferHelper.sol';
+import "@uniswap/v3-core/contracts/interfaces/IUniswapV3Pool.sol";
+import "@uniswap/v3-core/contracts/libraries/TickMath.sol";
 
 import './interfaces/IUniswapV2Router02.sol';
 import './libraries/UniswapV2Library.sol';
 import './libraries/SafeMath.sol';
 import './interfaces/IERC20.sol';
 import './interfaces/IWETH.sol';
+import './interfaces/IBlackScholes.sol';
+import './OptionGreekCache.sol';
 
 contract UniswapV2Router02 is IUniswapV2Router02 {
     using SafeMath for uint;
 
+    struct RentInfo {
+        address payable originalOwner;
+        address payable renter;
+        uint256 tokenId;
+        uint256 price;
+        uint256 duration;
+        uint256 expiryDate;
+    }
+
     address public immutable override factory;
     address public immutable override WETH;
+    OptionGreekCache private immutable optionGreekCache = OptionGreekCache('someaddresshere');
+
 
     modifier ensure(uint deadline) {
         require(deadline >= block.timestamp, 'UniswapV2Router: EXPIRED');
@@ -23,6 +38,41 @@ contract UniswapV2Router02 is IUniswapV2Router02 {
     constructor(address _factory, address _WETH) public {
         factory = _factory;
         WETH = _WETH;
+    }
+
+    getRentalPrice(int24 tickUpper, int24 tickLower, uint256 duration, address poolAddr) external returns uint256 {
+        IUniswapV3Pool memory UniswapPool =  IUniswapV3Pool(poolAddr);
+        int56[] ticks = UniswapPool.observe([1, 0])[0];
+        int56 tokenAPrice = TickMath.getSqrtRatioAtTick(ticks[1] - ticks[0]); //sqrt of the ratio of the two assets (token1/token0)
+        
+        if (spotPrice > midPrice) {
+            IBlackScholes.PricesDeltaStdVega memory optionPrices =
+                blackScholes.pricesDeltaStdVega(
+                duration,
+                optionGreekCache.getVol(poolAddr),
+                tokenAPrice,
+                TickMath.getSqrtRatioAtTick(tickUpper),
+                optionGreekCache.getRiskFreeRate()
+            ); // [<call price> , <put price> , <call delta> , <put delta> ] everything is in decimals            
+            return optionPrices[1];
+        } else {
+            IBlackScholes.PricesDeltaStdVega memory optionPrices =
+                blackScholes.pricesDeltaStdVega(
+                duration,
+                optionGreekCache.getVol(poolAddr),,
+                tokenAPrice,
+                TickMath.getSqrtRatioAtTick(tickLower),
+                optionGreekCache.getRiskFreeRate()
+            ); // [<call price> , <put price> , <call delta> , <put delta> ] everything is in decimals            
+            return optionPrices[0];
+        }
+        //instantiate uniswap v3 pool
+        //instantiate BlackScholes
+        //call observe to pool twice to get 2 tick readings
+        //do math to get TWAP based on tick readings
+        //if TWAP > mid of position range, call BlackScholes put with strike price as upper tick 
+        //else call BlackScholes call with strike price as lower tick
+        //return whatever BlackScholes did
     }
 
     receive() external payable {
