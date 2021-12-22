@@ -6,12 +6,12 @@ interface IRentPoolFactory {
     function feeTo() external view returns (address);
     function feeToSetter() external view returns (address);
 
-    function getPool(address uniswapV3Pool) external view returns (address rentPool);
-    function allPools(uint) external view returns (address pair);
+    function getPool(address token) external view returns (address rentPool);
+    function getAllPools(uint) external view returns (address[] memory allPools);
     function allPoolsLength() external view returns (uint);
 
     function createPool(address uniswapV3Pool) external returns (address rentPool);
 
-    function setFeeTo(address) external;
-    function setFeeToSetter(address) external;
+    function setFeeTo(address to) external;
+    function setFeeToSetter(address to) external;
 }
