@@ -1,6 +1,8 @@
 pragma solidity = 0.7.6;
 
 import "./interfaces/IRentPoolFactory.sol";
+import "./interfaces/IRentPool.sol";
+import "./RentPool.sol";
 
 
 contract RentPoolFactory is IRentPoolFactory {
@@ -36,8 +38,19 @@ contract RentPoolFactory is IRentPoolFactory {
         return allPools;
     }
 
-    function createPool(address uniswapV3Pool) override external returns (address rentPool) {
-        return address(0);
+    function createPool(address token) override external returns (address pool) {
+        require(token != address(0),"ZERO_ADDRESS");
+        require(tokenToPool[token] == address(0), "POOL_EXISTS"); // single check is sufficient
+        bytes memory bytecode = type(RentPool).creationCode;
+        bytes32 salt = keccak256(abi.encode(token));
+        assembly {
+            pool := create2(0, add(bytecode, 32), mload(bytecode), salt)
+        }
+        IRentPool(pool).initialize(token);
+        tokenToPool[token] = pool;
+        allPools.push(pool);
+        emit PoolCreated(token, pool, allPools.length);
+        return pool;
     }
 
     function setFeeTo(address to) external override  {
