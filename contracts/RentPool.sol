@@ -47,7 +47,7 @@ contract RentPool is IRentPool, RentERC20 {
     event WithdrawFees(address indexed to, uint amount);
     event Sync(uint112 reserve);
 
-    constructor() public {
+    constructor() public RentERC20() {
         factory = msg.sender;
     }
 
@@ -75,6 +75,9 @@ contract RentPool is IRentPool, RentERC20 {
  
     }
 
+
+
+
     // this low-level function should be called from a contract which performs important safety checks
     function mint(address to) external override lock returns (uint liquidity) {
         (uint112 _reserve, ,) = getReserves(); // gas savings
@@ -86,7 +89,7 @@ contract RentPool is IRentPool, RentERC20 {
         } else {
             liquidity = amount;
         }
-        require(liquidity > 0, 'INSUFFICIENT_LIQUIDITY_MINTED');
+        require(liquidity > 0, "INSUFFICIENT_LIQUIDITY_MINTED");
         _mint(to, liquidity);
         _update(uint112(balance), _reserve);
         emit Mint(msg.sender, amount);
@@ -94,11 +97,12 @@ contract RentPool is IRentPool, RentERC20 {
 
     // this low-level function should be called from a contract which performs important safety checks
     //before calling this, router must transfer tokens to burn address
-    function burn(address payable to) external override lock returns (uint amount) {
+    function burn(address to) external override lock returns (uint amountOfTokens, uint feesAccrued) {
         (uint112 _reserve, uint112 feesAccrued,) = getReserves(); // gas savings
         address _token = token;                                // gas savings
         uint balance = IERC20(_token).balanceOf(address(this));
         uint liquidity = balanceOf[address(this)];
+        
 
         bool feeOn = _mintFee();
         uint _totalSupply = totalSupply; // gas savings, must be defined here since totalSupply can update in _mintFee
@@ -107,7 +111,7 @@ contract RentPool is IRentPool, RentERC20 {
         require(amountOfTokens > 0, 'INSUFFICIENT_LIQUIDITY_BURNED');
         _burn(address(this), liquidity);
         _safeTransfer(token, to, amountOfTokens);
-        to.transfer(amountOfFees);
+        payable(to).transfer(amountOfFees);
 
         balance = IERC20(_token).balanceOf(address(this));
         _update(uint112(balance), _reserve);

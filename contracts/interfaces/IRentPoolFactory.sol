@@ -14,4 +14,7 @@ interface IRentPoolFactory {
 
     function setFeeTo(address to) external;
     function setFeeToSetter(address to) external;
+
+    function setFee(uint256 newFee) external;
+    function getFee(uint256 newFee) external view returns (uint256);
 }
