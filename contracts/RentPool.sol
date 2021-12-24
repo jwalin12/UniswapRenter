@@ -120,7 +120,7 @@ contract RentPool is IRentPool, RentERC20 {
 
 
     // this low-level function should be called from a contract which performs important safety checks
-    function withdrawFees (address to) external returns (uint256 amountOfFees) {
+    function withdrawFees (address to) external override returns (uint256 amountOfFees) {
         (, uint112 feesAccrued,) = getReserves(); // gas savings
         address _token = token;
         uint liquidity = balanceOf[address(to)];

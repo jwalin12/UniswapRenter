@@ -3,6 +3,7 @@ pragma solidity 0.7.6;
 pragma experimental ABIEncoderV2;
 
 interface IBlackScholes {
+  
   struct PricesDeltaStdVega {
     uint callPrice;
     uint putPrice;

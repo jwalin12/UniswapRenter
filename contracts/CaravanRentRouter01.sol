@@ -1,16 +1,19 @@
 pragma solidity =0.7.6;
+pragma abicoder v2;
 
 import "./interfaces/IRentPoolFactory.sol";
 import "@uniswap/lib/contracts/libraries/TransferHelper.sol";
 import '@uniswap/v3-core/contracts/interfaces/IUniswapV3Pool.sol';
+import "@uniswap/v3-core/contracts/libraries/TickMath.sol";
 
 import './interfaces/IRentRouter01.sol';
+import './interfaces/IBlackScholes.sol';
 import './interfaces/IRentPool.sol';
 import './interfaces/IRentERC20.sol';
-import './libraries/SafeMath.sol';
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import './interfaces/IWETH.sol';
 import './OptionGreekCache.sol';
+import './BlackScholes.sol';
 
 contract UniswapV2Router02 is IRentRouter01 {
     using SafeMath for uint;
@@ -19,6 +22,9 @@ contract UniswapV2Router02 is IRentRouter01 {
     address public immutable WETH;
 
     OptionGreekCache private immutable optionGreekCache = OptionGreekCache('someaddresshere');
+    BlackScholes private immutable blackScholes = BlackScholes('someaddresshere');
+    uint32[] private observationRange;
+
 
 
     modifier ensure(uint deadline) {
@@ -29,6 +35,8 @@ contract UniswapV2Router02 is IRentRouter01 {
     constructor(address _factory, address _WETH) public {
         factory = _factory;
         WETH = _WETH;
+        observationRange.push(0);
+        observationRange.push(1);
     }
 
     receive() external payable {
@@ -36,8 +44,8 @@ contract UniswapV2Router02 is IRentRouter01 {
     }
 
     function getRentalPrice(int24 tickUpper, int24 tickLower, uint256 duration, address poolAddr) external returns (uint256) {
-        IUniswapV3Pool memory uniswapPool =  IUniswapV3Pool(poolAddr);
-        int56[] ticks = uniswapPool.observe([1, 0])[0];
+        IUniswapV3Pool uniswapPool =  IUniswapV3Pool(poolAddr);
+        (int56[] memory ticks,) = uniswapPool.observe(observationRange);
         uint160 tokenAPrice = TickMath.getSqrtRatioAtTick(ticks[1] - ticks[0]); //sqrt of the ratio of the two assets (token1/token0)
         uint160 sqrtRatioLower = TickMath.getSqrtRatioAtTick(tickLower); //sqrt of the ratio of the two assets (token1/token0)
         uint160 sqrtRatioUpper = TickMath.getSqrtRatioAtTick(tickUpper);
@@ -53,7 +61,7 @@ contract UniswapV2Router02 is IRentRouter01 {
                 TickMath.getSqrtRatioAtTick(tickUpper),
                 optionGreekCache.getRiskFreeRate()
             ); // [<call price> , <put price> , <call delta> , <put delta> ] everything is in decimals            
-            return optionPrices[1];
+            return optionPrices.putPrice;
         } else {
             IBlackScholes.PricesDeltaStdVega memory optionPrices =
                 blackScholes.pricesDeltaStdVega(
@@ -63,7 +71,7 @@ contract UniswapV2Router02 is IRentRouter01 {
                 TickMath.getSqrtRatioAtTick(tickLower),
                 optionGreekCache.getRiskFreeRate()
             ); // [<call price> , <put price> , <call delta> , <put delta> ] everything is in decimals            
-            return optionPrices[0];
+            return optionPrices.callPrice;
         }
         //instantiate uniswap v3 pool
         //instantiate BlackScholes
@@ -124,7 +132,7 @@ contract UniswapV2Router02 is IRentRouter01 {
     }
 
 
-    function withdrawFeesWithoutRemovingLiquidity(address token, uint feesMin, address to, uint deadline) ensure(deadline) external returns (uint256 feesRecieved) {
+    function withdrawFeesWithoutRemovingLiquidity(address token, uint feesMin, address to, uint deadline) ensure(deadline) override external returns (uint256 feesRecieved) {
         address pool = IRentPoolFactory(factory).getPool(token);
         feesRecieved = IRentPool(pool).withdrawFees(to);
         require(feesRecieved >= feesMin, "INSUFFICIENT FEES RECIEVED");
@@ -167,7 +175,6 @@ contract UniswapV2Router02 is IRentRouter01 {
         require(amountRecieved >= amountMin, "INSUFFICIENT LIQUIDITY BURNED");
         require(feesRecieved >= feesMin, "INSUFFICIENT FEES RECIEVED");
 
-        TransferHelper.safeTransfer(token, to, amountToken);
         IWETH(WETH).withdraw(amountETH);
         TransferHelper.safeTransferETH(to, amountETH);
     }

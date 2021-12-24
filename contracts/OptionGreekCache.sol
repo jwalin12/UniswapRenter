@@ -5,19 +5,19 @@ contract OptionGreekCache {
     mapping(address => uint256) private poolAddressToVol;
     mapping(address => bool) private authorizedUsers;
     address private owner;
-    uint256 private riskFreeRate;
+    int256 private riskFreeRate;
 
     constructor() {
         authorizedUsers[msg.sender] = true;
         owner = msg.sender;
     }
 
-    function getRiskFreeRate() external view returns (uint256) {
+    function getRiskFreeRate() external view returns (int256) {
         return riskFreeRate;
     }
 
-    function setRiskFreeRate(uint256 newRate) external {
-        require(authorizedUsers[msg.sender], 'Unauthorized user');
+    function setRiskFreeRate(int256 newRate) external {
+        require(authorizedUsers[msg.sender], "Unauthorized user");
         riskFreeRate = newRate;
     }
 
@@ -26,7 +26,7 @@ contract OptionGreekCache {
     }
 
     function setPoolAddressToVol(address poolAddr, uint256 newVol) external {
-        require(authorizedUsers[msg.sender], 'Unauthorized user');
+        require(authorizedUsers[msg.sender], "Unauthorized user");
         poolAddressToVol[poolAddr] = newVol;
     }
 
