@@ -61,6 +61,7 @@ contract UniswapV2Router02 is IRentRouter01 {
         price.sqrtRatioLower = TickMath.getSqrtRatioAtTick(tickLower); //sqrt of the ratio of the two assets (token1/token0)
         price.sqrtRatioUpper = TickMath.getSqrtRatioAtTick(tickUpper);
         price.sqrtRatioMid = price.sqrtRatioLower + (price.sqrtRatioLower + price.sqrtRatioUpper) / 2;
+        //the mid price is wrong. It must be calculated using the squared ratios, not the sqrts.
 
         if (price.tokenAPrice > price.sqrtRatioMid) {
             IBlackScholes.PricesDeltaStdVega memory optionPrices =
