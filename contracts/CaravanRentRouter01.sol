@@ -1,25 +1,22 @@
 pragma solidity =0.7.6;
 
-import "@uniswap/v3-core/contracts/interfaces/IUniswapV3Pool.sol";
-import "@uniswap/v3-core/contracts/libraries/TickMath.sol";
-
-import './interfaces/IBlackScholes.sol';
-import './OptionGreekCache.sol';
-
-import '@uniswap/v2-core/contracts/interfaces/IRentPoolFactory.sol';
-import '@uniswap/lib/contracts/libraries/TransferHelper.sol';
+import "./interfaces/IRentPoolFactory.sol";
+import "@uniswap/lib/contracts/libraries/TransferHelper.sol";
+import '@uniswap/v3-core/contracts/interfaces/IUniswapV3Pool.sol';
 
 import './interfaces/IRentRouter01.sol';
-import './libraries/UniswapV2Library.sol';
+import './interfaces/IRentPool.sol';
+import './interfaces/IRentERC20.sol';
 import './libraries/SafeMath.sol';
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import './interfaces/IWETH.sol';
+import './OptionGreekCache.sol';
 
 contract UniswapV2Router02 is IRentRouter01 {
     using SafeMath for uint;
 
-    address public immutable override factory;
-    address public immutable override WETH;
+    address public immutable factory;
+    address public immutable WETH;
 
     OptionGreekCache private immutable optionGreekCache = OptionGreekCache('someaddresshere');
 
@@ -38,7 +35,7 @@ contract UniswapV2Router02 is IRentRouter01 {
         assert(msg.sender == WETH); // only accept ETH via fallback from the WETH contract
     }
 
-    function getRentalPrice(int24 tickUpper, int24 tickLower, uint256 duration, address poolAddr) external returns uint256 {
+    function getRentalPrice(int24 tickUpper, int24 tickLower, uint256 duration, address poolAddr) external returns (uint256) {
         IUniswapV3Pool memory UniswapPool =  IUniswapV3Pool(poolAddr);
         int56[] ticks = UniswapPool.observe([1, 0])[0];
         int56 tokenAPrice = TickMath.getSqrtRatioAtTick(ticks[1] - ticks[0]); //sqrt of the ratio of the two assets (token1/token0)
@@ -95,173 +92,143 @@ contract UniswapV2Router02 is IRentRouter01 {
     function addLiquidity(
         address token,
         uint amount,
-        address to
-    ) external virtual override returns (uint liquidity) {
+        uint amountMin,
+        address to,
+        uint deadline
+    ) external virtual override ensure(deadline) returns (uint liquidity) {
         _addLiquidity(token, amount);
         address pool = IRentPoolFactory(factory).getPool(token);
         TransferHelper.safeTransferFrom(token, msg.sender, pool, amount);
         liquidity = IRentPool(pool).mint(to);
+        require(liquidity >= amountMin, "INSUFFICIENT LIQUIDITY MINTED");
     }
+
     function addLiquidityETH(
         uint amountETH,
-        address to
+        uint amountMin,
+        address to,
+        uint deadline
     ) external virtual override payable ensure(deadline) returns (uint liquidity) {
         _addLiquidity(WETH, msg.value);
-        address pool = IRentPoolFactory(factory).getPool(token);
+        address pool = IRentPoolFactory(factory).getPool(WETH);
         IWETH(WETH).deposit{value: amountETH}();
-        assert(IWETH(WETH).transfer(pair, amountETH));
+        assert(IWETH(WETH).transfer(pool, amountETH));
         liquidity = IRentPool(pool).mint(to);
+        require(liquidity >= amountMin, "INSUFFICIENT LIQUIDITY MINTED");
         // refund dust eth, if any
         if (msg.value > amountETH) TransferHelper.safeTransferETH(msg.sender, msg.value - amountETH);
+    }
+
+
+    function withdrawFeesWithoutRemovingLiquidity(address token, uint feesMin, address to, uint deadline) ensure(deadline) external returns (uint256 feesRecieved) {
+        address pool = IRentPoolFactory(factory).getPool(token);
+        feesRecieved = IRentPool(pool).withdrawFees(to);
+        require(feesRecieved >= feesMin, "INSUFFICIENT FEES RECIEVED");
+
     }
 
     // **** REMOVE LIQUIDITY ****
     function removeLiquidity(
         address token,
         uint amount,
-        address to,
-    ) public virtual override {
+        uint amountMin,
+        uint feesMin,
+        address to, 
+        uint deadline
+    ) public virtual ensure(deadline) returns (uint amountTokensRecieved, uint feesRecieved) {
         address pool = IRentPoolFactory(factory).getPool(token);
-        IRentPool(pool).transferFrom(msg.sender, pool, amount); // send liquidity to pair
-        IRentPool(pool).burn(to);
-
+        IRentERC20(pool).transferFrom(msg.sender, pool, amount); // send liquidity to pair
+        (amountTokensRecieved, feesRecieved) = IRentPool(pool).burn(to);
+        require(amountTokensRecieved >= amountMin, "INSUFFICIENT LIQUIDITY BURNED");
+        require(feesRecieved >= feesMin, "INSUFFICIENT FEES RECIEVED");
     }
     function removeLiquidityETH(
         uint amountETH,
+        uint amountMin,
+        uint feesMin,
         address to,
         uint deadline
-    ) public virtual override ensure(deadline) returns (uint amountToken, uint amountETH) {
-        (amountToken, amountETH) = removeLiquidity(
-            token,
+    ) public virtual ensure(deadline) returns (uint amountTokensRecieved, uint feesRecieved) {
+        removeLiquidity(
             WETH,
-            liquidity,
-            amountTokenMin,
-            amountETHMin,
+            amountETH,
+            amountMin,
+            feesMin,
             address(this),
             deadline
         );
-<<<<<<< HEAD
+        address pool = IRentPoolFactory(factory).getPool(WETH);
+        IRentERC20(pool).transferFrom(msg.sender, pool, amountETH); // send liquidity to pair
+       (uint amountRecieved, uint feesRecieved) = IRentPool(pool).burn(to);
+        require(amountRecieved >= amountMin, "INSUFFICIENT LIQUIDITY BURNED");
+        require(feesRecieved >= feesMin, "INSUFFICIENT FEES RECIEVED");
+
         TransferHelper.safeTransfer(token, to, amountToken);
-=======
-        address pool = IRentPoolFactory(factory).getPool(token);
-        IRentPool(pool).transferFrom(msg.sender, pool, amount); // send liquidity to pair
-        IRentPool(pool).burn(to);
->>>>>>> 328f70231b15e56ad71e45e323e0ef746626fc5e
         IWETH(WETH).withdraw(amountETH);
         TransferHelper.safeTransferETH(to, amountETH);
     }
     function removeLiquidityWithPermit(
-        address tokenA,
-        address tokenB,
-        uint liquidity,
-        uint amountAMin,
-        uint amountBMin,
+        address token,
+        uint amount,
+        uint amountMin,
+        uint feesMin,
         address to,
         uint deadline,
         bool approveMax, uint8 v, bytes32 r, bytes32 s
-    ) external virtual override returns (uint amountA, uint amountB) {
-        address pair = UniswapV2Library.pairFor(factory, tokenA, tokenB);
-        uint value = approveMax ? uint(-1) : liquidity;
-        IUniswapV2Pair(pair).permit(msg.sender, address(this), value, deadline, v, r, s);
-        (amountA, amountB) = removeLiquidity(tokenA, tokenB, liquidity, amountAMin, amountBMin, to, deadline);
+    ) external virtual override returns (uint amountTokensRecieved, uint feesRecieved) {
+        address pool = IRentPoolFactory(factory).getPool(token);
+        uint value = approveMax ? uint(-1) : amount;
+        IRentERC20(pool).permit(msg.sender, address(this), value, deadline, v, r, s);
+        (amountTokensRecieved, feesRecieved) = removeLiquidity(token, amount, amountMin, feesMin, to, deadline);
     }
     function removeLiquidityETHWithPermit(
         address token,
-        uint liquidity,
-        uint amountTokenMin,
+        uint amount,
         uint amountETHMin,
+        uint feesMin,
         address to,
         uint deadline,
         bool approveMax, uint8 v, bytes32 r, bytes32 s
-    ) external virtual override returns (uint amountToken, uint amountETH) {
-        address pair = UniswapV2Library.pairFor(factory, token, WETH);
-        uint value = approveMax ? uint(-1) : liquidity;
-        IUniswapV2Pair(pair).permit(msg.sender, address(this), value, deadline, v, r, s);
-        (amountToken, amountETH) = removeLiquidityETH(token, liquidity, amountTokenMin, amountETHMin, to, deadline);
+    ) external virtual override returns (uint amountTokensRecieved, uint feesRecieved) {
+        address pool = IRentPoolFactory(factory).getPool(token);
+        uint value = approveMax ? uint(-1) : amount;
+        IRentERC20(pool).permit(msg.sender, address(this), value, deadline, v, r, s);
+        (uint amountTokensRecieved, uint feesRecieved) = removeLiquidityETH(amount, amountETHMin, feesMin, to, deadline);
     }
 
     // **** REMOVE LIQUIDITY (supporting fee-on-transfer tokens) ****
     function removeLiquidityETHSupportingFeeOnTransferTokens(
-        address token,
-        uint liquidity,
-        uint amountTokenMin,
-        uint amountETHMin,
+        uint amount,
+        uint amountMin,
+        uint amountFeesMin,
         address to,
         uint deadline
-    ) public virtual override ensure(deadline) returns (uint amountETH) {
+    ) public virtual ensure(deadline) returns (uint amountETH) {
         (, amountETH) = removeLiquidity(
-            token,
             WETH,
-            liquidity,
-            amountTokenMin,
-            amountETHMin,
+            amount,
+            amountMin,
+            amountFeesMin,
             address(this),
             deadline
         );
-        TransferHelper.safeTransfer(token, to, IERC20(token).balanceOf(address(this)));
         IWETH(WETH).withdraw(amountETH);
         TransferHelper.safeTransferETH(to, amountETH);
     }
     function removeLiquidityETHWithPermitSupportingFeeOnTransferTokens(
-        address token,
-        uint liquidity,
-        uint amountTokenMin,
-        uint amountETHMin,
+        uint amount,
+        uint amountMin,
+        uint amountFeesMin,
         address to,
         uint deadline,
         bool approveMax, uint8 v, bytes32 r, bytes32 s
     ) external virtual override returns (uint amountETH) {
-        address pair = UniswapV2Library.pairFor(factory, token, WETH);
-        uint value = approveMax ? uint(-1) : liquidity;
-        IUniswapV2Pair(pair).permit(msg.sender, address(this), value, deadline, v, r, s);
+        address pool = IRentPoolFactory(factory).getPool(WETH);
+        uint value = approveMax ? uint(-1) : amount;
+        IRentERC20(pool).permit(msg.sender, address(this), value, deadline, v, r, s);
         amountETH = removeLiquidityETHSupportingFeeOnTransferTokens(
-            token, liquidity, amountTokenMin, amountETHMin, to, deadline
+            amount, amountMin, amountFeesMin, to, deadline
         );
     }
 
-
-    // **** LIBRARY FUNCTIONS ****
-    function quote(uint amountA, uint reserveA, uint reserveB) public pure virtual override returns (uint amountB) {
-        return UniswapV2Library.quote(amountA, reserveA, reserveB);
-    }
-
-    function getAmountOut(uint amountIn, uint reserveIn, uint reserveOut)
-        public
-        pure
-        virtual
-        override
-        returns (uint amountOut)
-    {
-        return UniswapV2Library.getAmountOut(amountIn, reserveIn, reserveOut);
-    }
-
-    function getAmountIn(uint amountOut, uint reserveIn, uint reserveOut)
-        public
-        pure
-        virtual
-        override
-        returns (uint amountIn)
-    {
-        return UniswapV2Library.getAmountIn(amountOut, reserveIn, reserveOut);
-    }
-
-    function getAmountsOut(uint amountIn, address[] memory path)
-        public
-        view
-        virtual
-        override
-        returns (uint[] memory amounts)
-    {
-        return UniswapV2Library.getAmountsOut(factory, amountIn, path);
-    }
-
-    function getAmountsIn(uint amountOut, address[] memory path)
-        public
-        view
-        virtual
-        override
-        returns (uint[] memory amounts)
-    {
-        return UniswapV2Library.getAmountsIn(factory, amountOut, path);
-    }
 }

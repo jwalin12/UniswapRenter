@@ -8,12 +8,12 @@ import "./RentPool.sol";
 contract RentPoolFactory is IRentPoolFactory {
 
     address UniswapV3Factory = 0x1F98431c8aD98523631AE4a59f267346ea31F984;
-
-
     address private _feeTo; //who the fees go to
     address private _feeToSetter; //who sets where the fee goes to
     mapping(address => address) public tokenToPool;
     address[] public allPools;
+
+    uint256 public _fee; //fee is divided by 10000, so 2 is 0.02% fee
 
     function feeTo() external override view returns (address) {
         return _feeTo;
@@ -61,6 +61,16 @@ contract RentPoolFactory is IRentPoolFactory {
     function setFeeToSetter(address to) external override  {
         require(msg.sender == _feeToSetter, "UNAUTHORIZED");
         _feeToSetter = to;
+    }
+
+    function setFee(uint256 newFee) external override {
+        require(msg.sender == _feeToSetter, "UNAUTHORIZED");
+        _fee = newFee;
+
+    }
+    function getFee(uint256 newFee) external view override returns (uint256) {
+        return _fee;
+
     }
 
 }

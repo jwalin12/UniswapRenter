@@ -1,4 +1,4 @@
-pragma solidity 0.7.6
+pragma solidity = 0.7.6;
 
 contract OptionGreekCache {
 
@@ -12,31 +12,31 @@ contract OptionGreekCache {
         owner = msg.sender;
     }
 
-    getRiskFreeRate() external pure returns (uint256) {
+    function getRiskFreeRate() external view returns (uint256) {
         return riskFreeRate;
     }
 
-    setRiskFreeRate(uint256 newRate) external {
+    function setRiskFreeRate(uint256 newRate) external {
         require(authorizedUsers[msg.sender], 'Unauthorized user');
         riskFreeRate = newRate;
     }
 
-    getVol(address poolAddr) external pure returns (uint256) {
+    function getVol(address poolAddr) external view returns (uint256) {
         return poolAddressToVol[poolAddr];
     }
 
-    setPoolAddressToVol(address poolAddr, uint256 newVol) external {
+    function setPoolAddressToVol(address poolAddr, uint256 newVol) external {
         require(authorizedUsers[msg.sender], 'Unauthorized user');
         poolAddressToVol[poolAddr] = newVol;
     }
 
     //adding and removing authorized users can only be done by owner of contract
-    addAuthorizedUser(address newUser) external {
+    function addAuthorizedUser(address newUser) external {
         require(msg.sender == owner, 'Unauthorized user');
         authorizedUsers[newUser] = true;
     }
 
-    removeAuthorizedUser(address userToRemove) external {
+    function removeAuthorizedUser(address userToRemove) external {
         require(msg.sender == owner, 'Not the owner');
         authorizedUsers[userToRemove] = false;
     }

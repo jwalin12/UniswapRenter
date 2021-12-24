@@ -6,8 +6,6 @@ import "./libraries/SafeMath.sol";
 contract RentERC20 is IRentERC20 {
     using SafeMath for uint;
 
-
-
     function name() external override pure returns (string memory) {
         return "Caravan Rent";
     }
