@@ -16,6 +16,9 @@ contract UniswapV2Router02 is IRentRouter01 {
     address public immutable factory;
     address public immutable WETH;
 
+    OptionGreekCache private immutable optionGreekCache = OptionGreekCache('someaddresshere');
+
+
     modifier ensure(uint deadline) {
         require(deadline >= block.timestamp, 'RentRouter: EXPIRED');
         _;
@@ -30,6 +33,49 @@ contract UniswapV2Router02 is IRentRouter01 {
         assert(msg.sender == WETH); // only accept ETH via fallback from the WETH contract
     }
 
+    function getRentalPrice(int24 tickUpper, int24 tickLower, uint256 duration, address poolAddr) external returns uint256 {
+        IUniswapV3Pool memory UniswapPool =  IUniswapV3Pool(poolAddr);
+        int56[] ticks = UniswapPool.observe([1, 0])[0];
+        int56 tokenAPrice = TickMath.getSqrtRatioAtTick(ticks[1] - ticks[0]); //sqrt of the ratio of the two assets (token1/token0)
+        
+        if (spotPrice > midPrice) {
+            IBlackScholes.PricesDeltaStdVega memory optionPrices =
+                blackScholes.pricesDeltaStdVega(
+                duration,
+                optionGreekCache.getVol(poolAddr),
+                tokenAPrice,
+                TickMath.getSqrtRatioAtTick(tickUpper),
+                optionGreekCache.getRiskFreeRate()
+            ); // [<call price> , <put price> , <call delta> , <put delta> ] everything is in decimals            
+            return optionPrices[1];
+        } else {
+            IBlackScholes.PricesDeltaStdVega memory optionPrices =
+                blackScholes.pricesDeltaStdVega(
+                duration,
+                optionGreekCache.getVol(poolAddr),,
+                tokenAPrice,
+                TickMath.getSqrtRatioAtTick(tickLower),
+                optionGreekCache.getRiskFreeRate()
+            ); // [<call price> , <put price> , <call delta> , <put delta> ] everything is in decimals            
+            return optionPrices[0];
+        }
+        //instantiate uniswap v3 pool
+        //instantiate BlackScholes
+        //call observe to pool twice to get 2 tick readings
+        //do math to get TWAP based on tick readings
+        //if TWAP > mid of position range, call BlackScholes put with strike price as upper tick 
+        //else call BlackScholes call with strike price as lower tick
+        //return whatever BlackScholes did
+    }
+
+    function buyRentalListing() external payable {
+        //check if enough liquidity is in the pool
+        //check if price is right (call get price) and compare to slippage tolerance
+        //create rental on existing rent platform
+        //who is the owner of these rentals?
+        //when interacting with pool, use functions in this router
+    }
+    
     // **** ADD LIQUIDITY ****
     function _addLiquidity(
         address token,
@@ -99,11 +145,21 @@ contract UniswapV2Router02 is IRentRouter01 {
             address(this),
             deadline
         );
+<<<<<<< HEAD
         address pool = IRentPoolFactory(factory).getPool(WETH);
         IRentERC20(pool).transferFrom(msg.sender, pool, amountETH); // send liquidity to pair
        (uint amountRecieved, uint feesRecieved) = IRentPool(pool).burn(to);
         require(amountRecieved >= amountMin, "INSUFFICIENT LIQUIDITY BURNED");
         require(feesRecieved >= feesMin, "INSUFFICIENT FEES RECIEVED");
+=======
+<<<<<<< HEAD
+        TransferHelper.safeTransfer(token, to, amountToken);
+=======
+        address pool = IRentPoolFactory(factory).getPool(token);
+        IRentPool(pool).transferFrom(msg.sender, pool, amount); // send liquidity to pair
+        IRentPool(pool).burn(to);
+>>>>>>> 328f70231b15e56ad71e45e323e0ef746626fc5e
+>>>>>>> be745c4c049e938e69c3873d6f9e56dc1e97914c
         IWETH(WETH).withdraw(amountETH);
         TransferHelper.safeTransferETH(to, amountETH);
     }
