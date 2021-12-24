@@ -57,7 +57,7 @@ contract UniswapV2Router02 is IRentRouter01 {
             IBlackScholes.PricesDeltaStdVega memory optionPrices =
                 blackScholes.pricesDeltaStdVega(
                 duration,
-                optionGreekCache.getVol(poolAddr),,
+                optionGreekCache.getVol(poolAddr),
                 tokenAPrice,
                 TickMath.getSqrtRatioAtTick(tickLower),
                 optionGreekCache.getRiskFreeRate()
@@ -77,7 +77,8 @@ contract UniswapV2Router02 is IRentRouter01 {
         //check if enough liquidity is in the pool
         //check if price is right (call get price) and compare to slippage tolerance
         //create rental on existing rent platform
-        //who is the owner of these rentals?
+        //who is the owner of these rentals? managerial contract that we can collect fees from? or rent platform contract which could do the same.
+        //rent platform handles everything with rentals and owns all pool rentals
         //when interacting with pool, use functions in this router
     }
     
