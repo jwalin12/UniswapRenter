@@ -30,7 +30,7 @@
     "@typescript-eslint/parser": "^4.33.0",
     "@uniswap/sdk-core": "^3.0.1",
     "@uniswap/v3-periphery": "github:Uniswap/v3-periphery",
-    "@uniswap/v3-sdk": "^3.5.1-optimism-regensis",
+    "@uniswap/v3-sdk": "^3.6.3",
     "chai": "^4.3.4",
     "dotenv": "^10.0.0",
     "eslint": "^7.32.0",

@@ -1,7 +1,8 @@
 pragma solidity =0.7.6;
 
-import './interfaces/IRentPoolFactory.sol';
-import '@uniswap/lib/contracts/libraries/TransferHelper.sol';
+import "./interfaces/IRentPoolFactory.sol";
+import "@uniswap/lib/contracts/libraries/TransferHelper.sol";
+import '@uniswap/v3-core/contracts/interfaces/IUniswapV3Pool.sol';
 
 import './interfaces/IRentRouter01.sol';
 import './interfaces/IRentPool.sol';
@@ -9,6 +10,7 @@ import './interfaces/IRentERC20.sol';
 import './libraries/SafeMath.sol';
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import './interfaces/IWETH.sol';
+import './OptionGreekCache.sol';
 
 contract UniswapV2Router02 is IRentRouter01 {
     using SafeMath for uint;
@@ -33,7 +35,7 @@ contract UniswapV2Router02 is IRentRouter01 {
         assert(msg.sender == WETH); // only accept ETH via fallback from the WETH contract
     }
 
-    function getRentalPrice(int24 tickUpper, int24 tickLower, uint256 duration, address poolAddr) external returns uint256 {
+    function getRentalPrice(int24 tickUpper, int24 tickLower, uint256 duration, address poolAddr) external returns (uint256) {
         IUniswapV3Pool memory UniswapPool =  IUniswapV3Pool(poolAddr);
         int56[] ticks = UniswapPool.observe([1, 0])[0];
         int56 tokenAPrice = TickMath.getSqrtRatioAtTick(ticks[1] - ticks[0]); //sqrt of the ratio of the two assets (token1/token0)
@@ -52,7 +54,7 @@ contract UniswapV2Router02 is IRentRouter01 {
             IBlackScholes.PricesDeltaStdVega memory optionPrices =
                 blackScholes.pricesDeltaStdVega(
                 duration,
-                optionGreekCache.getVol(poolAddr),,
+                optionGreekCache.getVol(poolAddr),
                 tokenAPrice,
                 TickMath.getSqrtRatioAtTick(tickLower),
                 optionGreekCache.getRiskFreeRate()
@@ -99,6 +101,7 @@ contract UniswapV2Router02 is IRentRouter01 {
         liquidity = IRentPool(pool).mint(to);
         require(liquidity >= amountMin, "INSUFFICIENT LIQUIDITY MINTED");
     }
+
     function addLiquidityETH(
         uint amountETH,
         uint amountMin,
@@ -113,6 +116,14 @@ contract UniswapV2Router02 is IRentRouter01 {
         require(liquidity >= amountMin, "INSUFFICIENT LIQUIDITY MINTED");
         // refund dust eth, if any
         if (msg.value > amountETH) TransferHelper.safeTransferETH(msg.sender, msg.value - amountETH);
+    }
+
+
+    function withdrawFeesWithoutRemovingLiquidity(address token, uint feesMin, address to, uint deadline) ensure(deadline) external returns (uint256 feesRecieved) {
+        address pool = IRentPoolFactory(factory).getPool(token);
+        feesRecieved = IRentPool(pool).withdrawFees(to);
+        require(feesRecieved >= feesMin, "INSUFFICIENT FEES RECIEVED");
+
     }
 
     // **** REMOVE LIQUIDITY ****
@@ -145,21 +156,13 @@ contract UniswapV2Router02 is IRentRouter01 {
             address(this),
             deadline
         );
-<<<<<<< HEAD
         address pool = IRentPoolFactory(factory).getPool(WETH);
         IRentERC20(pool).transferFrom(msg.sender, pool, amountETH); // send liquidity to pair
        (uint amountRecieved, uint feesRecieved) = IRentPool(pool).burn(to);
         require(amountRecieved >= amountMin, "INSUFFICIENT LIQUIDITY BURNED");
         require(feesRecieved >= feesMin, "INSUFFICIENT FEES RECIEVED");
-=======
-<<<<<<< HEAD
+
         TransferHelper.safeTransfer(token, to, amountToken);
-=======
-        address pool = IRentPoolFactory(factory).getPool(token);
-        IRentPool(pool).transferFrom(msg.sender, pool, amount); // send liquidity to pair
-        IRentPool(pool).burn(to);
->>>>>>> 328f70231b15e56ad71e45e323e0ef746626fc5e
->>>>>>> be745c4c049e938e69c3873d6f9e56dc1e97914c
         IWETH(WETH).withdraw(amountETH);
         TransferHelper.safeTransferETH(to, amountETH);
     }

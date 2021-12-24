@@ -120,13 +120,13 @@ contract RentPool is IRentPool, RentERC20 {
 
 
     // this low-level function should be called from a contract which performs important safety checks
-    function withdrawFees (address payable to) external {
+    function withdrawFees (address to) external returns (uint256 amountOfFees) {
         (, uint112 feesAccrued,) = getReserves(); // gas savings
         address _token = token;
         uint liquidity = balanceOf[address(to)];
-        uint256 amountOfFees = liquidity.mul(feesAccrued)/ totalSupply;
+        amountOfFees = liquidity.mul(feesAccrued)/ totalSupply;
         require(amountOfFees > 0, 'NO_FEES_ACCRUED');
-        to.transfer(amountOfFees);
+        payable(to).transfer(amountOfFees);
         uint256 balance = IERC20(_token).balanceOf(address(this));
         _update(uint112(balance), reserve);
         emit WithdrawFees(to, amountOfFees);
