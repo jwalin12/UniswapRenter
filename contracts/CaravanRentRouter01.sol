@@ -36,11 +36,15 @@ contract UniswapV2Router02 is IRentRouter01 {
     }
 
     function getRentalPrice(int24 tickUpper, int24 tickLower, uint256 duration, address poolAddr) external returns (uint256) {
-        IUniswapV3Pool memory UniswapPool =  IUniswapV3Pool(poolAddr);
-        int56[] ticks = UniswapPool.observe([1, 0])[0];
-        int56 tokenAPrice = TickMath.getSqrtRatioAtTick(ticks[1] - ticks[0]); //sqrt of the ratio of the two assets (token1/token0)
-        
-        if (spotPrice > midPrice) {
+        IUniswapV3Pool memory uniswapPool =  IUniswapV3Pool(poolAddr);
+        int56[] ticks = uniswapPool.observe([1, 0])[0];
+        uint160 tokenAPrice = TickMath.getSqrtRatioAtTick(ticks[1] - ticks[0]); //sqrt of the ratio of the two assets (token1/token0)
+        uint160 sqrtRatioLower = TickMath.getSqrtRatioAtTick(tickLower); //sqrt of the ratio of the two assets (token1/token0)
+        uint160 sqrtRatioUpper = TickMath.getSqrtRatioAtTick(tickUpper);
+        uint160 sqrtRatioMid = sqrtRatioLower + (sqrtRatioLower + sqrtRatioUpper) / 2;
+
+
+        if (tokenAPrice > sqrtRatioMid) {
             IBlackScholes.PricesDeltaStdVega memory optionPrices =
                 blackScholes.pricesDeltaStdVega(
                 duration,
