@@ -4,7 +4,8 @@ pragma abicoder v2;
 import "./interfaces/IRentPoolFactory.sol";
 import "@uniswap/lib/contracts/libraries/TransferHelper.sol";
 import '@uniswap/v3-core/contracts/interfaces/IUniswapV3Pool.sol';
-import "@uniswap/v3-core/contracts/libraries/TickMath.sol";
+// import "@uniswap/v3-core/contracts/libraries/TickMath.sol";
+import "./libraries/TickMath.sol";
 
 import './interfaces/IRentRouter01.sol';
 import './interfaces/IBlackScholes.sol';
@@ -21,22 +22,30 @@ contract UniswapV2Router02 is IRentRouter01 {
     address public immutable factory;
     address public immutable WETH;
 
-    OptionGreekCache private immutable optionGreekCache = OptionGreekCache('someaddresshere');
-    BlackScholes private immutable blackScholes = BlackScholes('someaddresshere');
+    OptionGreekCache private immutable optionGreekCache;
+    BlackScholes private immutable blackScholes;
     uint32[] private observationRange;
 
-
+    struct PriceInfo {
+        IUniswapV3Pool uniswapPool;
+        uint160 tokenAPrice;
+        uint160 sqrtRatioLower;
+        uint160 sqrtRatioUpper;
+        uint160 sqrtRatioMid;
+    }
 
     modifier ensure(uint deadline) {
         require(deadline >= block.timestamp, 'RentRouter: EXPIRED');
         _;
     }
 
-    constructor(address _factory, address _WETH) public {
+    constructor(address _factory, address _WETH, address optionGreekCacheAddress, address blackScholesAddress) public {
         factory = _factory;
         WETH = _WETH;
         observationRange.push(0);
         observationRange.push(1);
+        optionGreekCache = OptionGreekCache(optionGreekCacheAddress);
+        blackScholes = BlackScholes(blackScholesAddress);
     }
 
     receive() external payable {
@@ -44,21 +53,22 @@ contract UniswapV2Router02 is IRentRouter01 {
     }
 
     function getRentalPrice(int24 tickUpper, int24 tickLower, uint256 duration, address poolAddr) external returns (uint256) {
-        IUniswapV3Pool uniswapPool =  IUniswapV3Pool(poolAddr);
-        (int56[] memory ticks,) = uniswapPool.observe(observationRange);
-        uint160 tokenAPrice = TickMath.getSqrtRatioAtTick(ticks[1] - ticks[0]); //sqrt of the ratio of the two assets (token1/token0)
-        uint160 sqrtRatioLower = TickMath.getSqrtRatioAtTick(tickLower); //sqrt of the ratio of the two assets (token1/token0)
-        uint160 sqrtRatioUpper = TickMath.getSqrtRatioAtTick(tickUpper);
-        uint160 sqrtRatioMid = sqrtRatioLower + (sqrtRatioLower + sqrtRatioUpper) / 2;
+        PriceInfo memory price;
+        price.uniswapPool =  IUniswapV3Pool(poolAddr);
+        (int56[] memory ticks,) = price.uniswapPool.observe(observationRange);
+        //ticks[1] and ticks[0] are int56
+        price.tokenAPrice = TickMath.getSqrtRatioAtTick(ticks[1] - ticks[0]); //sqrt of the ratio of the two assets (token1/token0)
+        price.sqrtRatioLower = TickMath.getSqrtRatioAtTick(tickLower); //sqrt of the ratio of the two assets (token1/token0)
+        price.sqrtRatioUpper = TickMath.getSqrtRatioAtTick(tickUpper);
+        price.sqrtRatioMid = price.sqrtRatioLower + (price.sqrtRatioLower + price.sqrtRatioUpper) / 2;
 
-
-        if (tokenAPrice > sqrtRatioMid) {
+        if (price.tokenAPrice > price.sqrtRatioMid) {
             IBlackScholes.PricesDeltaStdVega memory optionPrices =
                 blackScholes.pricesDeltaStdVega(
                 duration,
                 optionGreekCache.getVol(poolAddr),
-                tokenAPrice,
-                TickMath.getSqrtRatioAtTick(tickUpper),
+                price.tokenAPrice,
+                price.sqrtRatioUpper,
                 optionGreekCache.getRiskFreeRate()
             ); // [<call price> , <put price> , <call delta> , <put delta> ] everything is in decimals            
             return optionPrices.putPrice;
@@ -67,8 +77,8 @@ contract UniswapV2Router02 is IRentRouter01 {
                 blackScholes.pricesDeltaStdVega(
                 duration,
                 optionGreekCache.getVol(poolAddr),
-                tokenAPrice,
-                TickMath.getSqrtRatioAtTick(tickLower),
+                price.tokenAPrice,
+                price.sqrtRatioLower,
                 optionGreekCache.getRiskFreeRate()
             ); // [<call price> , <put price> , <call delta> , <put delta> ] everything is in decimals            
             return optionPrices.callPrice;
