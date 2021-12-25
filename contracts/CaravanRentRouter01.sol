@@ -16,7 +16,7 @@ import './interfaces/IWETH.sol';
 import './OptionGreekCache.sol';
 import './BlackScholes.sol';
 
-contract UniswapV2Router02 is IRentRouter01 {
+contract CaravanRentRouter01 is IRentRouter01 {
     using SafeMath for uint;
 
     address public immutable factory;

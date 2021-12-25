@@ -75,9 +75,6 @@ contract RentPool is IRentPool, RentERC20 {
  
     }
 
-
-
-
     // this low-level function should be called from a contract which performs important safety checks
     function mint(address to) external override lock returns (uint liquidity) {
         (uint112 _reserve, ,) = getReserves(); // gas savings

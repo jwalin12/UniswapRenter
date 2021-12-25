@@ -14,6 +14,16 @@ contract RentPoolFactory is IRentPoolFactory {
     address[] public allPools;
 
     uint256 public _fee; //fee is divided by 10000, so 2 is 0.02% fee
+    uint256 public feesAccrued;
+    uint256 public totalFeesAccrued;
+
+
+    function recieve() external payable {
+        feesAccrued += msg.value;
+        totalFeesAccrued += msg.value;
+
+
+    }
 
     function feeTo() external override view returns (address) {
         return _feeTo;
@@ -70,6 +80,14 @@ contract RentPoolFactory is IRentPoolFactory {
     }
     function getFee(uint256 newFee) external view override returns (uint256) {
         return _fee;
+
+    }
+
+    function withdrawProtocolFees() external override {
+        require(msg.sender == _feeToSetter, "UNAUTHORIZED");
+        uint256 currFees = feesAccrued;
+        feesAccrued = 0;
+        payable(_feeTo).transfer(currFees);
 
     }
 

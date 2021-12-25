@@ -7,9 +7,9 @@ contract OptionGreekCache {
     address private owner;
     int256 private riskFreeRate;
 
-    constructor() {
-        authorizedUsers[msg.sender] = true;
-        owner = msg.sender;
+    constructor(address _owner) {
+        authorizedUsers[_owner] = true;
+        owner = _owner;
     }
 
     function getRiskFreeRate() external view returns (int256) {
