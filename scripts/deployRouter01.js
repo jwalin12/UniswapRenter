@@ -13,7 +13,8 @@ async function main() {
 
 
     const GreekCache = await ethers.ethers.getContractFactory("OptionGreekCache");
-    const greekCache = await GreekCache.deploy(owner);
+    const greekCache = await GreekCache.deploy(owner, 2, "0x8ad599c3a0ff1de082011efddc58f1908eb6e6d8", BigInt(10e23));
+
 
     console.log("Greek Cache Contract deployed to:", greekCache.address);
 

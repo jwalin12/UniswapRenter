@@ -1,19 +1,19 @@
 pragma solidity =0.7.6;
 
-import './libraries/Math.sol';
-import './libraries/UQ112x112.sol';
-import './libraries/SafeMath.sol';
+import "./libraries/Math.sol";
+import "./libraries/UQ112x112.sol";
+import "./libraries/SafeMath.sol";
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
-import './interfaces/IRentPool.sol';
-import './RentERC20.sol';
-import './interfaces/IRentPoolFactory.sol';
+import "./interfaces/IRentPool.sol";
+import "./RentERC20.sol";
+import "./interfaces/IRentPoolFactory.sol";
 
 contract RentPool is IRentPool, RentERC20 {
     using SafeMath  for uint;
     using UQ112x112 for uint224;
 
     uint public constant MINIMUM_LIQUIDITY = 10**3;
-    bytes4 private constant SELECTOR = bytes4(keccak256(bytes('transfer(address,uint256)')));
+    bytes4 private constant SELECTOR = bytes4(keccak256(bytes("transfer(address,uint256)")));
 
     address public factory;
     address public token;
@@ -25,7 +25,7 @@ contract RentPool is IRentPool, RentERC20 {
 
     uint private unlocked = 1;
     modifier lock() {
-        require(unlocked == 1, 'UniswapV2: LOCKED');
+        require(unlocked == 1, "UniswapV2: LOCKED");
         unlocked = 0;
         _;
         unlocked = 1;
@@ -39,7 +39,7 @@ contract RentPool is IRentPool, RentERC20 {
 
     function _safeTransfer(address token, address to, uint value) private {
         (bool success, bytes memory data) = token.call(abi.encodeWithSelector(SELECTOR, to, value));
-        require(success && (data.length == 0 || abi.decode(data, (bool))), 'TRANSFER_FAILED');
+        require(success && (data.length == 0 || abi.decode(data, (bool))), "TRANSFER_FAILED");
     }
 
     event Mint(address indexed sender, uint amount);
@@ -53,14 +53,14 @@ contract RentPool is IRentPool, RentERC20 {
 
     // called once by the factory at time of deployment
     function initialize(address _token) override external {
-        require(msg.sender == factory, 'FORBIDDEN'); // sufficient check
+        require(msg.sender == factory, "FORBIDDEN"); // sufficient check
         token = _token;
 
     }
 
     // update reserves and, on the first call per block, price accumulators
     function _update(uint112 balance, uint112 _reserve) private {
-        require(balance <= uint112(-1), 'OVERFLOW');
+        require(balance <= uint112(-1), "OVERFLOW");
         uint32 blockTimestamp = uint32(block.timestamp % 2**32);
         reserve = uint112(balance);
         feesAccrued = uint112(address(this).balance);
@@ -105,7 +105,7 @@ contract RentPool is IRentPool, RentERC20 {
         uint _totalSupply = totalSupply; // gas savings, must be defined here since totalSupply can update in _mintFee
         uint256 amountOfTokens = liquidity.mul(balance) / _totalSupply; // using balances ensures pro-rata distribution
         uint256 amountOfFees = liquidity.mul(feesAccrued)/ _totalSupply;
-        require(amountOfTokens > 0, 'INSUFFICIENT_LIQUIDITY_BURNED');
+        require(amountOfTokens > 0, "INSUFFICIENT_LIQUIDITY_BURNED");
         _burn(address(this), liquidity);
         _safeTransfer(token, to, amountOfTokens);
         payable(to).transfer(amountOfFees);
@@ -122,7 +122,7 @@ contract RentPool is IRentPool, RentERC20 {
         address _token = token;
         uint liquidity = balanceOf[address(to)];
         amountOfFees = liquidity.mul(feesAccrued)/ totalSupply;
-        require(amountOfFees > 0, 'NO_FEES_ACCRUED');
+        require(amountOfFees > 0, "NO_FEES_ACCRUED");
         payable(to).transfer(amountOfFees);
         uint256 balance = IERC20(_token).balanceOf(address(this));
         _update(uint112(balance), reserve);

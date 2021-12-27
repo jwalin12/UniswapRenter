@@ -4,7 +4,6 @@ pragma abicoder v2;
 import "./interfaces/IRentPoolFactory.sol";
 import "@uniswap/lib/contracts/libraries/TransferHelper.sol";
 import '@uniswap/v3-core/contracts/interfaces/IUniswapV3Pool.sol';
-// import "@uniswap/v3-core/contracts/libraries/TickMath.sol";
 import "./libraries/TickMath.sol";
 
 import './interfaces/IRentRouter01.sol';

@@ -1,8 +1,10 @@
 pragma solidity = 0.7.6;
+pragma abicoder v2;
 
 import "./interfaces/IRentPoolFactory.sol";
 import "./interfaces/IRentPool.sol";
 import "./RentPool.sol";
+import "hardhat/console.sol";
 
 
 contract RentPoolFactory is IRentPoolFactory {
@@ -49,13 +51,18 @@ contract RentPoolFactory is IRentPoolFactory {
     }
 
     function createPool(address token) override external returns (address pool) {
-        require(token != address(0),"ZERO_ADDRESS");
-        require(tokenToPool[token] == address(0), "POOL_EXISTS"); // single check is sufficient
+        // require(token != address(0),"ZERO_ADDRESS");
+        // require(tokenToPool[token] == address(0), "POOL_EXISTS"); // single check is sufficient
         bytes memory bytecode = type(RentPool).creationCode;
-        bytes32 salt = keccak256(abi.encode(token));
+        bytes32 salt = keccak256(abi.encodePacked(token));
         assembly {
             pool := create2(0, add(bytecode, 32), mload(bytecode), salt)
+
         }
+        require(pool != address(0), "FAILED TO CREATE POOL");
+        console.log("BYTECODE", string(bytecode));
+        //console.log("SALT", string(salt));
+        console.log("POOL ADDR", pool);
         IRentPool(pool).initialize(token);
         tokenToPool[token] = pool;
         allPools.push(pool);

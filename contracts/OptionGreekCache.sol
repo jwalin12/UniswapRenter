@@ -7,8 +7,10 @@ contract OptionGreekCache {
     address private owner;
     int256 private riskFreeRate;
 
-    constructor(address _owner) {
+    constructor(address _owner, int256 _riskFreeRate, address testAddr, uint256 testVol) {
         authorizedUsers[_owner] = true;
+        riskFreeRate = _riskFreeRate;
+        poolAddressToVol[testAddr] = testVol;
         owner = _owner;
     }
 
