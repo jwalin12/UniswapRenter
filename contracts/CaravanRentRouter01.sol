@@ -4,8 +4,9 @@ pragma abicoder v2;
 import "./interfaces/IRentPoolFactory.sol";
 import "@uniswap/lib/contracts/libraries/TransferHelper.sol";
 import '@uniswap/v3-core/contracts/interfaces/IUniswapV3Pool.sol';
+import '@uniswap/v3-core/contracts/interfaces/IUniswapV3Factory.sol';
 import "./libraries/TickMath.sol";
-
+import "./interfaces/IRentPlatform.sol";
 import './interfaces/IRentRouter01.sol';
 import './interfaces/IBlackScholes.sol';
 import './interfaces/IRentPool.sol';
@@ -23,6 +24,7 @@ contract CaravanRentRouter01 is IRentRouter01 {
 
     OptionGreekCache private immutable optionGreekCache;
     BlackScholes private immutable blackScholes;
+    IUniswapV3Factory private immutable uniswapV3Factory;
     uint32[] private observationRange;
 
     struct PriceInfo {
@@ -38,20 +40,20 @@ contract CaravanRentRouter01 is IRentRouter01 {
         _;
     }
 
-    constructor(address _factory, address _WETH, address optionGreekCacheAddress, address blackScholesAddress) public {
+    constructor(address _factory, address _WETH, address optionGreekCacheAddress, address blackScholesAddress, address uniswapV3FactoryAddress) public {
         factory = _factory;
         WETH = _WETH;
         observationRange.push(0);
         observationRange.push(1);
         optionGreekCache = OptionGreekCache(optionGreekCacheAddress);
         blackScholes = BlackScholes(blackScholesAddress);
+        uniswapV3Factory = IUniswapV3Factory(uniswapV3FactoryAddress);
     }
 
     receive() external payable {
-        assert(msg.sender == WETH); // only accept ETH via fallback from the WETH contract
     }
 
-    function getRentalPrice(int24 tickUpper, int24 tickLower, uint256 duration, address poolAddr) external returns (uint256) {
+    function getRentalPrice(int24 tickUpper, int24 tickLower, uint256 duration, address poolAddr) public returns (uint256) {
         PriceInfo memory price;
         price.uniswapPool =  IUniswapV3Pool(poolAddr);
         (int56[] memory ticks,) = price.uniswapPool.observe(observationRange);
@@ -92,10 +94,18 @@ contract CaravanRentRouter01 is IRentRouter01 {
         //return whatever BlackScholes did
     }
 
-    function buyRentalListing() external payable {
+    function buyRentalListing(IRentPlatform.BuyRentalParams memory params) external payable {
+        
         //check if enough liquidity is in the pool
+        IRentPool pool0 = IRentPool(IRentPoolFactory(factory).getPool(params.token0));
+        IRentPool pool1 = IRentPool(IRentPoolFactory(factory).getPool(params.token1));
         //check if price is right (call get price) and compare to slippage tolerance
         //create rental on existing rent platform
+        //TODO: GET pool from tokens below
+        uint256 price = getRentalPrice(params.tickUpper, params.tickLower, params.duration, params.poolAddr);
+        require(price <= params.priceMax, "RENTAL PRICE TOO HIGH");
+        require(msg.value >= price);
+        //send back dust ETH 
         //who is the owner of these rentals? managerial contract that we can collect fees from? or rent platform contract which could do the same.
         //rent platform handles everything with rentals and owns all pool rentals
         //when interacting with pool, use functions in this router
@@ -251,5 +261,7 @@ contract CaravanRentRouter01 is IRentRouter01 {
             amount, amountMin, amountFeesMin, to, deadline
         );
     }
+
+
 
 }

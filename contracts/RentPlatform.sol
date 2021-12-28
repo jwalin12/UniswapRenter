@@ -6,6 +6,8 @@ import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 import "@openzeppelin/contracts/token/ERC721/IERC721Receiver.sol";
 import "@uniswap/v3-periphery/contracts/interfaces/INonfungiblePositionManager.sol";
 import "@uniswap/v3-periphery/contracts/base/Multicall.sol";
+import "./interfaces/IRentPlatform.sol";
+
 
 import "utils/structs/tokenAddresses.sol";
 
@@ -14,7 +16,7 @@ import "utils/structs/tokenAddresses.sol";
 contract RentPlatform is
     Multicall,
     IERC721Receiver
-{
+    {
     INonfungiblePositionManager public immutable UniswapNFTManager =  INonfungiblePositionManager(0xC36442b4a4522E871399CD717aBDD847Ab11FE88);
 
   struct RentInfo {

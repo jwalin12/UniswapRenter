@@ -32,7 +32,7 @@ describe("Router", async () => {
     })
 
     it("should be able to get price data", async() => {
-        router.methods.getRentalPrice(10, 12, 6000, "0x8ad599c3a0ff1de082011efddc58f1908eb6e6d8").send({from: accounts[0]})
+        console.log(router.methods.getRentalPrice(10, 12, 6000, "0x8ad599c3a0ff1de082011efddc58f1908eb6e6d8").send({from: accounts[0]}));
     });
 
     it("should be able to burn from router", async() => {
