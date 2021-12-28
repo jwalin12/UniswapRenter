@@ -33,10 +33,15 @@ contract RentPool is IRentPool, RentERC20 {
         unlocked = 1;
     }
 
-    function getReserves() public view returns (uint112 _reserve, uint112 feesAccrued, uint32 _blockTimestampLast) {
+
+    function _getReserves() private view returns (uint112 _reserve, uint112 feesAccrued, uint32 _blockTimestampLast) {
         _reserve = reserve;
         feesAccrued = feesAccrued;
         _blockTimestampLast = blockTimestampLast;
+    }
+
+    function getReserves() external override view returns (uint112 _reserve, uint112 feesAccrued, uint32 _blockTimestampLast) {
+        return _getReserves();
     }
 
     /// @dev Common checks for valid tick inputs.
@@ -86,7 +91,7 @@ contract RentPool is IRentPool, RentERC20 {
 
     // this low-level function should be called from a contract which performs important safety checks
     function mint(address to) external override lock returns (uint liquidity) {
-        (uint112 _reserve, ,) = getReserves(); // gas savings
+        (uint112 _reserve, ,) = _getReserves(); // gas savings
         uint balance = IERC20(token).balanceOf(address(this));
         uint amount = balance.sub(reserve);
         if (totalSupply == 0) {
@@ -104,7 +109,7 @@ contract RentPool is IRentPool, RentERC20 {
     // this low-level function should be called from a contract which performs important safety checks
     //before calling this, router must transfer tokens to burn address
     function burn(address to) external override lock returns (uint amountOfTokens, uint feesAccrued) {
-        (uint112 _reserve, uint112 feesAccrued,) = getReserves(); // gas savings
+        (uint112 _reserve, uint112 feesAccrued,) = _getReserves(); // gas savings
         address _token = token;                                // gas savings
         uint balance = IERC20(_token).balanceOf(address(this));
         uint liquidity = balanceOf[address(this)];
@@ -127,7 +132,7 @@ contract RentPool is IRentPool, RentERC20 {
 
     // this low-level function should be called from a contract which performs important safety checks
     function withdrawFees (address to) external override returns (uint256 amountOfFees) {
-        (, uint112 feesAccrued,) = getReserves(); // gas savings
+        (, uint112 feesAccrued,) = _getReserves(); // gas savings
         address _token = token;
         uint liquidity = balanceOf[address(to)];
         amountOfFees = liquidity.mul(feesAccrued)/ totalSupply;

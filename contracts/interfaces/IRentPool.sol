@@ -7,6 +7,7 @@ interface IRentPool {
     function mint(address to) external returns (uint liquidity);
     function burn(address to) external returns (uint amountOfTokens, uint amountOfFees);
     function withdrawFees (address to) external returns (uint256 amountOfFees);
+    function getReserves() external returns (uint112 _reserve, uint112 feesAccrued, uint32 _blockTimestampLast);
     function skim(address to) external;
     function sync() external;
 

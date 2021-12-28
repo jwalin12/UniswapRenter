@@ -11,8 +11,8 @@ library FeeMath {
 
 
     function calculateFeeSplit(IRentPoolFactory factory, address token0, address token1, uint256 amount0, uint256 amount1) public returns (uint256 token0Fee, uint256 token1Fee) {
-        IRentPool pool0 = factory.getPool(token0);
-        IRentPool pool1 = factory.getPool(token1);
+        IRentPool pool0 = IRentPool(factory.getPool(token0));
+        IRentPool pool1 = IRentPool(factory.getPool(token1));
 
         (uint256 totalAmountToken0, , ) = pool0.getReserves();
         (uint256 totalAmountToken1, , ) = pool1.getReserves();

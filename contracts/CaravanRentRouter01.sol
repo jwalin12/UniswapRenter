@@ -102,9 +102,12 @@ contract CaravanRentRouter01 is IRentRouter01 {
         //check if price is right (call get price) and compare to slippage tolerance
         //create rental on existing rent platform
         //TODO: GET pool from tokens below
-        uint256 price = getRentalPrice(params.tickUpper, params.tickLower, params.duration, params.poolAddr);
+        address poolAddr = uniswapV3Factory.getPool(params.token0, params.token1, params.fee);
+        require(poolAddr != address(0), "UNISWAP POOL DOES NOT EXIST");
+        uint256 price = getRentalPrice(params.tickUpper, params.tickLower, params.duration, poolAddr);
         require(price <= params.priceMax, "RENTAL PRICE TOO HIGH");
-        require(msg.value >= price);
+        require(msg.value >= price, "INSUFFICIENT FUNDS");
+        
         //send back dust ETH 
         //who is the owner of these rentals? managerial contract that we can collect fees from? or rent platform contract which could do the same.
         //rent platform handles everything with rentals and owns all pool rentals
