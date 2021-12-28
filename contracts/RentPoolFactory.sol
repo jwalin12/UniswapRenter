@@ -5,6 +5,7 @@ import "./interfaces/IRentPoolFactory.sol";
 import "./interfaces/IRentPool.sol";
 import "./RentPool.sol";
 import "hardhat/console.sol";
+import "@openzeppelin/contracts/utils/Create2.sol";
 
 
 contract RentPoolFactory is IRentPoolFactory {
@@ -51,23 +52,21 @@ contract RentPoolFactory is IRentPoolFactory {
     }
 
     function createPool(address token) override external returns (address pool) {
-        // require(token != address(0),"ZERO_ADDRESS");
-        // require(tokenToPool[token] == address(0), "POOL_EXISTS"); // single check is sufficient
+        require(token != address(0),"ZERO_ADDRESS");
+        require(tokenToPool[token] == address(0), "POOL_EXISTS"); 
         bytes memory bytecode = type(RentPool).creationCode;
-        bytes32 salt = keccak256(abi.encodePacked(token));
-        assembly {
-            pool := create2(0, add(bytecode, 32), mload(bytecode), salt)
-
-        }
-        require(pool != address(0), "FAILED TO CREATE POOL");
-        console.log("BYTECODE", string(bytecode));
-        //console.log("SALT", string(salt));
-        console.log("POOL ADDR", pool);
+        bytes32 salt = keccak256(abi.encodePacked(token, "CARAVAN"));
+        bytes32 bytecodeHash =keccak256(abi.encodePacked(type(RentPool).creationCode));
+        pool = Create2.deploy(0, salt, bytecode);
+        // RentPool pool = new RentPool{salt:salt}();
+        // poolAddr = address(pool);
+        // require(poolAddr == predictedAddr, "ADDRESS INCORRECT");
         IRentPool(pool).initialize(token);
         tokenToPool[token] = pool;
         allPools.push(pool);
+        console.log("INIT SUCCESFULLY");
         emit PoolCreated(token, pool, allPools.length);
-        return pool;
+
     }
 
     function setFeeTo(address to) external override  {
@@ -81,8 +80,8 @@ contract RentPoolFactory is IRentPoolFactory {
     }
 
     function setFee(uint256 newFee) external override {
-        require(msg.sender == _feeToSetter, "UNAUTHORIZED");
-        _fee = newFee;
+        // require(msg.sender == _feeToSetter, "UNAUTHORIZED");
+        // _fee = newFee;
 
     }
     function getFee(uint256 newFee) external view override returns (uint256) {
@@ -91,10 +90,10 @@ contract RentPoolFactory is IRentPoolFactory {
     }
 
     function withdrawProtocolFees() external override {
-        require(msg.sender == _feeToSetter, "UNAUTHORIZED");
-        uint256 currFees = feesAccrued;
-        feesAccrued = 0;
-        payable(_feeTo).transfer(currFees);
+        // require(msg.sender == _feeToSetter, "UNAUTHORIZED");
+        // uint256 currFees = feesAccrued;
+        // feesAccrued = 0;
+        // payable(_feeTo).transfer(currFees);
 
     }
 

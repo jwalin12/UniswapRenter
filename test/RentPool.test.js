@@ -5,24 +5,19 @@ const rentPoolABI = require("../data/abi/contracts/RentPool.sol/RentPool.json");
 
 prov = ethers.getDefaultProvider();
 
-
-
-
 //TODO: try running with hardhat and waffle
 contract("RentPool", async () => {
-   
-        
     
-    it("Should initialize from a factory", async (accounts) => {
+    it("Should initialize from a factory with create pool", async (accounts) => {
         try {
         console.log("DEPLOYING");
         const [owner] = await ethers.getSigners();
-        console.log(await prov.getBalance(owner.address));
+        //console.log(await prov.getBalance(owner.address));
         const Factory = await ethers.getContractFactory("RentPoolFactory");
         const factory = await Factory.deploy(owner.address);
         await factory.deployed();
         console.log("DEPLOYED");
-        const pool = await factory.createPool("0x6b175474e89094c44da98b954eedeac495271d0f").connect(owner);
+        const pool = factory.createPool("0x6b175474e89094c44da98b954eedeac495271d0f").connect(owner).done();
        
         console.log("POOL", pool);
     } catch (e) {

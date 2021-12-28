@@ -6,12 +6,15 @@ import "./libraries/SafeMath.sol";
 contract RentERC20 is IRentERC20 {
     using SafeMath for uint;
 
+    string public constant _name = "Caravan Rent";
+    string public constant _symbol = "CNR";
+
     function name() external override pure returns (string memory) {
-        return "Caravan Rent";
+        return _name;
     }
 
     function symbol() external override pure returns (string memory) {
-        return "CNR";
+        return _symbol;
     }
     uint8 public constant override decimals = 18;
     uint  public override totalSupply;
@@ -29,7 +32,6 @@ contract RentERC20 is IRentERC20 {
         assembly {
             chainId := chainid()
         }
-        string memory _name = IRentERC20(address(this)).name();
         DOMAIN_SEPARATOR = keccak256(
             abi.encode(
                 keccak256("EIP712Domain(string name,string version,uint256 chainId,address verifyingContract)"),

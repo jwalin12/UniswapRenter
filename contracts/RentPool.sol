@@ -61,7 +61,7 @@ contract RentPool is IRentPool, RentERC20 {
     event WithdrawFees(address indexed to, uint amount);
     event Sync(uint112 reserve);
 
-    constructor() public RentERC20() {
+    constructor() public {
         factory = msg.sender;
     }
 
