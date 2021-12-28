@@ -7,6 +7,8 @@ import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "./interfaces/IRentPool.sol";
 import "./RentERC20.sol";
 import "./interfaces/IRentPoolFactory.sol";
+import "./libraries/TickMath.sol";
+
 
 contract RentPool is IRentPool, RentERC20 {
     using SafeMath  for uint;
@@ -35,6 +37,13 @@ contract RentPool is IRentPool, RentERC20 {
         _reserve = reserve;
         feesAccrued = feesAccrued;
         _blockTimestampLast = blockTimestampLast;
+    }
+
+    /// @dev Common checks for valid tick inputs.
+    function checkTicks(int24 tickLower, int24 tickUpper) private pure {
+        require(tickLower < tickUpper, 'TLU');
+        require(tickLower >= TickMath.MIN_TICK, 'TLM');
+        require(tickUpper <= TickMath.MAX_TICK, 'TUM');
     }
 
     function _safeTransfer(address token, address to, uint value) private {
