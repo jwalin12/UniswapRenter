@@ -1,6 +1,7 @@
 const { expect } = require("chai");
+const { assert, time } = require("console");
 const { ethers } = require("hardhat");
-const assert = require('assert');
+
 const Web3 = require('web3');
 const web3 = new Web3(new Web3.providers.HttpProvider("https://rinkeby.infura.io/v3/24c74b1a2d234298a3a757ccdf0997bc"));
 
