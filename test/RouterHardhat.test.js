@@ -49,23 +49,21 @@ describe("Router", async () => {
             const origBal = await provider.getBalance(account.address)
             poolAddr = await rentPoolFactory.getPool(WETH.address);
             expect(poolAddr == "0x0000000000000000000000000000000000000000", "POOL ADDR NOT 0");
-            await router.addLiquidityETH(ethers.utils.parseEther('0.01'), ethers.utils.parseEther('0'), account.address, ethers.BigNumber.from(deadline),{ value: ethers.utils.parseEther('0.1') });
+            await router.addLiquidityETH(ethers.utils.parseEther('10'), ethers.utils.parseEther('0'), account.address, ethers.BigNumber.from(deadline),{ value: ethers.utils.parseEther('11') });
             poolAddr = await rentPoolFactory.getPool(WETH.address);
 
             //check token balance of user
-            expect(await provider.getBalance(account.address) == (origBal-ethers.utils.parseEther('0.01')),  "FUNDS NOT TAKEN FROM SENDER");
+            expect(await provider.getBalance(account.address) == (origBal-ethers.utils.parseEther('10')),  "FUNDS NOT TAKEN FROM SENDER");
             
             //add liquidity
 
             //check pool reserves
             WETHPool = await new ethers.Contract(poolAddr, rentPoolABI, account);
             let newReserve = await WETHPool.getReserves()
-            expect(ethers.utils.parseEther('0.01') == newReserve, "FUNDS NOT SENT TO POOL");
-
-            await router.removeLiquidityETH(ethers.utils.parseEther('0.001'), ethers.utils.parseEther('0'),ethers.utils.parseEther('0'), account.address, ethers.BigNumber.from(deadline));
-            expect(await provider.getBalance(account.address) == origBal-ethers.utils.parseEther('0.01')+ethers.utils.parseEther('0.001') ,  "FUNDS NOT RETURNED TO SENDER");
-
-
+            expect(ethers.utils.parseEther('1') == newReserve, "FUNDS NOT SENT TO POOL");
+            //TODO: try approving smt 
+            await router.removeLiquidityETH(ethers.utils.parseEther('0.0000000000001'), ethers.utils.parseEther('0'),ethers.utils.parseEther('0'), account.address, ethers.BigNumber.from(deadline));
+            expect(await provider.getBalance(account.address) == origBal-ethers.utils.parseEther('0.01')+ethers.utils.parseEther('0.0000001') ,  "FUNDS NOT RETURNED TO SENDER");
 
         } catch (e) {
             if (e != null) {

@@ -7,6 +7,7 @@ import "@nomiclabs/hardhat-waffle";
 import "@typechain/hardhat";
 import "hardhat-gas-reporter";
 import "solidity-coverage";
+require("@nomiclabs/hardhat-truffle5");
 
 
 dotenv.config();
@@ -37,6 +38,15 @@ const config: HardhatUserConfig = {
         }
       },
       {
+        version: "0.6.6",
+        settings: {
+          optimizer: {
+            enabled: true,
+            runs: 200,
+          },
+        }
+      },
+      {
         version: "0.7.0",
         settings: {
           optimizer: {
@@ -54,8 +64,16 @@ const config: HardhatUserConfig = {
         process.env.PRIVATE_KEY !== undefined ? [process.env.PRIVATE_KEY] : [],
     },
     rinkeby: {
-      url: "YOUR URL HERE",
-      accounts: ['YOUR PRIVATE KEY HERE']
+      url: "YOUR URL",
+      accounts: ['YOUR PRIV KEY'],
+      gas: 2100000,
+      gasPrice: 8000000000
+    },
+    goerli: {
+      url: "YOUR URL",
+      accounts: ['YOUR PRIV KEY'],
+      gas: 2100000,
+      gasPrice: 8000000000
     },
   },
   gasReporter: {
