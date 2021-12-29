@@ -15,6 +15,7 @@ import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import './interfaces/IWETH.sol';
 import './OptionGreekCache.sol';
 import './BlackScholes.sol';
+import "hardhat/console.sol";
 
 contract CaravanRentRouter01 is IRentRouter01 {
     using SafeMath for uint;
@@ -53,7 +54,7 @@ contract CaravanRentRouter01 is IRentRouter01 {
     receive() external payable {
     }
 
-    function getRentalPrice(int24 tickUpper, int24 tickLower, uint256 duration, address poolAddr) public returns (uint256) {
+    function getRentalPrice(int24 tickUpper, int24 tickLower, uint256 duration, address poolAddr) public view returns (uint256) {
         PriceInfo memory price;
         price.uniswapPool =  IUniswapV3Pool(poolAddr);
         (int56[] memory ticks,) = price.uniswapPool.observe(observationRange);
@@ -106,6 +107,7 @@ contract CaravanRentRouter01 is IRentRouter01 {
         uint256 price = getRentalPrice(params.tickUpper, params.tickLower, params.duration, poolAddr);
         require(price <= params.priceMax, "RENTAL PRICE TOO HIGH");
         require(msg.value >= price, "INSUFFICIENT FUNDS");
+        if (msg.value > price) TransferHelper.safeTransferETH(msg.sender, msg.value - price);
 
         //send back dust ETH 
         //who is the owner of these rentals? managerial contract that we can collect fees from? or rent platform contract which could do the same.
@@ -115,8 +117,7 @@ contract CaravanRentRouter01 is IRentRouter01 {
     
     // **** ADD LIQUIDITY ****
     function _addLiquidity(
-        address token,
-        uint amount
+        address token
     ) internal virtual {
         // create the pair if it doesn't exist yet
         if (IRentPoolFactory(factory).getPool(token) == address(0)) {
@@ -130,7 +131,8 @@ contract CaravanRentRouter01 is IRentRouter01 {
         address to,
         uint deadline
     ) external virtual override ensure(deadline) returns (uint liquidity) {
-        _addLiquidity(token, amount);
+        _addLiquidity(token);
+        
         address pool = IRentPoolFactory(factory).getPool(token);
         TransferHelper.safeTransferFrom(token, msg.sender, pool, amount);
         liquidity = IRentPool(pool).mint(to);
@@ -143,11 +145,19 @@ contract CaravanRentRouter01 is IRentRouter01 {
         address to,
         uint deadline
     ) external virtual override payable ensure(deadline) returns (uint liquidity) {
-        _addLiquidity(WETH, msg.value);
+        _addLiquidity(WETH);
+        require(msg.value >= amountETH, "INSUFFICIENT FUNDS SENT");
+        console.log("Getting WETH Pool");
         address pool = IRentPoolFactory(factory).getPool(WETH);
-        IWETH(WETH).deposit{value: amountETH}();
+        console.log("depsoting ETH  into WETH contract");
+        
+        IWETH(WETH).deposit{ value : amountETH }();
+        console.log("Asserting");
         assert(IWETH(WETH).transfer(pool, amountETH));
+        console.log("Minting");
         liquidity = IRentPool(pool).mint(to);
+        console.log(amountMin);
+        console.log(liquidity);
         require(liquidity >= amountMin, "INSUFFICIENT LIQUIDITY MINTED");
         // refund dust eth, if any
         if (msg.value > amountETH) TransferHelper.safeTransferETH(msg.sender, msg.value - amountETH);
@@ -196,7 +206,7 @@ contract CaravanRentRouter01 is IRentRouter01 {
        (uint amountRecieved, uint feesRecieved) = IRentPool(pool).burn(to);
         require(amountRecieved >= amountMin, "INSUFFICIENT LIQUIDITY BURNED");
         require(feesRecieved >= feesMin, "INSUFFICIENT FEES RECIEVED");
-
+        
         IWETH(WETH).withdraw(amountETH);
         TransferHelper.safeTransferETH(to, amountETH);
     }

@@ -8,6 +8,7 @@ import "./interfaces/IRentPool.sol";
 import "./RentERC20.sol";
 import "./interfaces/IRentPoolFactory.sol";
 import "./libraries/TickMath.sol";
+import "hardhat/console.sol";
 
 
 contract RentPool is IRentPool, RentERC20 {
@@ -34,13 +35,14 @@ contract RentPool is IRentPool, RentERC20 {
     }
 
 
-    function _getReserves() private view returns (uint112 _reserve, uint112 feesAccrued, uint32 _blockTimestampLast) {
+    function _getReserves() private view returns (uint112 _reserve, uint112 _feesAccrued, uint32 _blockTimestampLast) {
         _reserve = reserve;
-        feesAccrued = feesAccrued;
+        _feesAccrued = feesAccrued;
         _blockTimestampLast = blockTimestampLast;
+
     }
 
-    function getReserves() external override view returns (uint112 _reserve, uint112 feesAccrued, uint32 _blockTimestampLast) {
+    function getReserves() external override view returns (uint112 _reserve, uint112 _feesAccrued, uint32 _blockTimestampLast) {
         return _getReserves();
     }
 

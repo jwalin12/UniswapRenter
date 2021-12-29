@@ -58,9 +58,7 @@ contract RentPoolFactory is IRentPoolFactory {
         bytes32 salt = keccak256(abi.encodePacked(token, "CARAVAN"));
         bytes32 bytecodeHash =keccak256(abi.encodePacked(type(RentPool).creationCode));
         pool = Create2.deploy(0, salt, bytecode);
-        // RentPool pool = new RentPool{salt:salt}();
-        // poolAddr = address(pool);
-        // require(poolAddr == predictedAddr, "ADDRESS INCORRECT");
+        console.log(pool);
         IRentPool(pool).initialize(token);
         tokenToPool[token] = pool;
         allPools.push(pool);
