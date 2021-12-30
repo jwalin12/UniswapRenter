@@ -31,8 +31,11 @@ describe("Router", async () => {
 
     it("should be able to get price data", async() => {
         try {
-            let rentalPrice = await router.getRentalPrice(10, 12, 6000, "0x8ad599c3a0ff1de082011efddc58f1908eb6e6d8", BigInt(100*PRECISE_UNIT));
-            console.log(rentalPrice / PRECISE_UNIT);
+            const lowerTick = 81609; // ETH/USDC = $3500 per ETH = 3499.90807274
+            const upperTick = 82944; // ETH/USDC = $4000 per ETH = 3999.74267845
+            const yearInSeconds = 31556926; // # of secs per year
+            let rentalPrice = await router.test(lowerTick, upperTick, yearInSeconds, "0x8ad599c3a0ff1de082011efddc58f1908eb6e6d8", BigInt(100*PRECISE_UNIT));
+            console.log(rentalPrice);
         } catch (e) {
             if (e != null) {
                 console.log(e);
