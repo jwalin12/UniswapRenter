@@ -2,7 +2,7 @@ const { expect } = require("chai");
 const { assert, time } = require("console");
 const { ethers } = require("hardhat");
 const rentPoolABI = require("../data/abi/contracts/RentPool.sol/RentPool.json");
-const PRECISE_UNIT = 1e27;
+const PRECISE_UNIT = 1e18;
 
 describe("Router", async () => {
 
@@ -19,7 +19,7 @@ describe("Router", async () => {
         BlackScholes = await ethers.getContractFactory("BlackScholes");
         blackScholes = await BlackScholes.deploy();
         GreekCache = await ethers.getContractFactory("OptionGreekCache");
-        greekCache = await GreekCache.deploy(account.address, BigInt(0.1*PRECISE_UNIT), "0x8ad599c3a0ff1de082011efddc58f1908eb6e6d8", BigInt(17*PRECISE_UNIT));
+        greekCache = await GreekCache.deploy(account.address, BigInt(.01*PRECISE_UNIT), "0x8ad599c3a0ff1de082011efddc58f1908eb6e6d8", BigInt(.17*PRECISE_UNIT));
         Router = await ethers.getContractFactory("CaravanRentRouter01");
         WETHFactory = await ethers.getContractFactory("WETH");
         WETH = await WETHFactory.deploy();

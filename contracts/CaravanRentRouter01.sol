@@ -27,7 +27,7 @@ contract CaravanRentRouter01 is IRentRouter01 {
     using SignedSafeDecimalMath for int;
 
     /// @dev Internally this library uses 27 decimals of precision
-    uint private constant PRECISE_UNIT = 1e27;
+    uint private constant PRECISE_UNIT = 1e18;
 
     address public immutable factory;
     address public immutable WETH;
@@ -39,6 +39,8 @@ contract CaravanRentRouter01 is IRentRouter01 {
 
     struct PriceInfo {
         IUniswapV3Pool uniswapPool;
+        uint token0Decimals;
+        uint token1Decimals;
         uint tokenAPrice;
         uint ratioLower;
         uint ratioUpper;
@@ -73,21 +75,24 @@ contract CaravanRentRouter01 is IRentRouter01 {
         price.uniswapPool = IUniswapV3Pool(poolAddr);
         int24 meanTick = OracleLibrary.consult(poolAddr, 60);
         price.meanTick = meanTick;
-        price.tokenAPrice = OracleLibrary.getQuoteAtTick(meanTick, uint128(PRECISE_UNIT), price.uniswapPool.token0(), price.uniswapPool.token1()); //sqrt of the ratio of the two assets (token1/token0)
-        price.ratioLower = OracleLibrary.getQuoteAtTick(tickLower, uint128(PRECISE_UNIT), price.uniswapPool.token0(), price.uniswapPool.token1()); //sqrt of the ratio of the two assets (token1/token0)
+        price.token0Decimals = 10**IRentERC20(price.uniswapPool.token0()).decimals();
+        price.token1Decimals = 10**IRentERC20(price.uniswapPool.token1()).decimals();
+        //getQuoteAtTick returns token1/token0 (price of token0 in terms of token1)
+        price.tokenAPrice = OracleLibrary.getQuoteAtTick(meanTick, uint128(price.token1Decimals), price.uniswapPool.token1(), price.uniswapPool.token0()); 
+        price.tokenAPrice = FullMath.mulDiv(PRECISE_UNIT, price.tokenAPrice, price.token0Decimals);
+        price.ratioLower = OracleLibrary.getQuoteAtTick(tickLower, uint128(PRECISE_UNIT), price.uniswapPool.token0(), price.uniswapPool.token1()); 
         price.ratioUpper = OracleLibrary.getQuoteAtTick(tickUpper, uint128(PRECISE_UNIT), price.uniswapPool.token0(), price.uniswapPool.token1());
-        // price.ratioMid = price.ratioLower.add(price.ratioUpper.sub(price.ratioLower).divideDecimalRoundPrecise(2));
         price.ratioMid = (price.ratioLower >> 1) + (price.ratioUpper >> 1) + (price.ratioLower & price.ratioUpper & 1);
         price.vol = optionGreekCache.getVol(poolAddr);
         price.rate = optionGreekCache.getRiskFreeRate();
         IBlackScholes.PricesDeltaStdVega memory optionPrices =
                 blackScholes.pricesDeltaStdVega(
-                durationInSeconds,
-                optionGreekCache.getVol(poolAddr),
-                price.tokenAPrice,
-                price.ratioLower,
-                optionGreekCache.getRiskFreeRate()
-            );
+                    durationInSeconds,
+                    optionGreekCache.getVol(poolAddr),
+                    price.tokenAPrice,
+                    price.ratioLower,
+                    optionGreekCache.getRiskFreeRate()
+                );
         price.call = optionPrices.callPrice;
         price.put = optionPrices.putPrice;
         return price;
