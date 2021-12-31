@@ -1,6 +1,14 @@
 pragma solidity = 0.7.6;
 
+// Libraries
+import "./synthetix/SignedSafeDecimalMath.sol";
+import "./synthetix/SafeDecimalMath.sol";
+
 contract OptionGreekCache {
+    using SafeMath for uint;
+    using SafeDecimalMath for uint;
+    using SignedSafeMath for int;
+    using SignedSafeDecimalMath for int;
 
     mapping(address => uint256) private poolAddressToVol;
     mapping(address => bool) private authorizedUsers;

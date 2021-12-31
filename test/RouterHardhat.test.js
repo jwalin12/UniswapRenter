@@ -2,19 +2,14 @@ const { expect } = require("chai");
 const { assert, time } = require("console");
 const { ethers } = require("hardhat");
 const rentPoolABI = require("../data/abi/contracts/RentPool.sol/RentPool.json");
-
-
-
-
-
+const PRECISE_UNIT = 1e18;
 
 describe("Router", async () => {
 
     let router;
     let rentPoolFactory;
     let WETH;
-    provider = new ethers.providers.Web3Provider(network.provider)
-
+    provider = new ethers.providers.Web3Provider(network.provider);
 
 
     it("should deploy",async () => {
@@ -24,7 +19,7 @@ describe("Router", async () => {
         BlackScholes = await ethers.getContractFactory("BlackScholes");
         blackScholes = await BlackScholes.deploy();
         GreekCache = await ethers.getContractFactory("OptionGreekCache");
-        greekCache = await GreekCache.deploy(account.address, 2, "0x8ad599c3a0ff1de082011efddc58f1908eb6e6d8", BigInt(10e23));
+        greekCache = await GreekCache.deploy(account.address, BigInt(.01*PRECISE_UNIT), "0x8ad599c3a0ff1de082011efddc58f1908eb6e6d8", BigInt(.17*PRECISE_UNIT));
         Router = await ethers.getContractFactory("CaravanRentRouter01");
         WETHFactory = await ethers.getContractFactory("WETH");
         WETH = await WETHFactory.deploy();
@@ -34,14 +29,29 @@ describe("Router", async () => {
     });
 
 
-    // it("should be able to get price data", async() => {
-    //     console.log(await router.getRentalPrice(10, 12, 6000, "0x1F98431c8aD98523631AE4a59f267346ea31F984"));
-    // });
+    it("should be able to get price data", async() => {
+        try {
+
+            
+
+            const lowerTick = 81609; // ETH/USDC = $3500 per ETH = 3499.90807274
+            const upperTick = 82944; // ETH/USDC = $4000 per ETH = 3999.74267845
+            const yearInSeconds = 31556926; // # of secs per year
+            let rentalPrice = await router.test(lowerTick, upperTick, yearInSeconds, "0x8ad599c3a0ff1de082011efddc58f1908eb6e6d8", BigInt(100*PRECISE_UNIT));
+            console.log(rentalPrice);
+        } catch (e) {
+            if (e != null) {
+                console.log(e);
+                console.log("Error when getting price data");
+            }
+            expect(e == null, "error %v", e);
+        }            
+    });
 
 
     it("should be able to add and remove ETH liquidity", async() => {
-        try {
 
+        try {
             blockNumber = await provider.getBlockNumber();
             block = await provider.getBlock(blockNumber);
             timestamp = block.timestamp;
@@ -69,10 +79,13 @@ describe("Router", async () => {
         } catch (e) {
             if (e != null) {
                 console.log(e);
+                console.log("Error when working with pool liquidity");
             }
             expect(e == null, "error %v", e);
 
+
         }
+          
 
     });
 

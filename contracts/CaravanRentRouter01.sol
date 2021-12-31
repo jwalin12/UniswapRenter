@@ -5,7 +5,8 @@ import "./interfaces/IRentPoolFactory.sol";
 import "@uniswap/lib/contracts/libraries/TransferHelper.sol";
 import '@uniswap/v3-core/contracts/interfaces/IUniswapV3Pool.sol';
 import '@uniswap/v3-core/contracts/interfaces/IUniswapV3Factory.sol';
-import "./libraries/TickMath.sol";
+import '@uniswap/v3-periphery/contracts/libraries/OracleLibrary.sol';
+import '@uniswap/v3-core/contracts/libraries/FullMath.sol';
 import "./interfaces/IRentPlatform.sol";
 import './interfaces/IRentRouter01.sol';
 import './interfaces/IBlackScholes.sol';
@@ -16,9 +17,17 @@ import './interfaces/IWETH.sol';
 import './OptionGreekCache.sol';
 import './BlackScholes.sol';
 import "hardhat/console.sol";
+import "./synthetix/SignedSafeDecimalMath.sol";
+import "./synthetix/SafeDecimalMath.sol";
 
 contract CaravanRentRouter01 is IRentRouter01 {
     using SafeMath for uint;
+    using SafeDecimalMath for uint;
+    using SignedSafeMath for int;
+    using SignedSafeDecimalMath for int;
+
+    /// @dev Internally this library uses 27 decimals of precision
+    uint private constant PRECISE_UNIT = 1e18;
 
     address public immutable factory;
     address public immutable WETH;
@@ -26,14 +35,21 @@ contract CaravanRentRouter01 is IRentRouter01 {
     OptionGreekCache private immutable optionGreekCache;
     BlackScholes private immutable blackScholes;
     IUniswapV3Factory private immutable uniswapV3Factory;
-    uint32[] private observationRange;
+    uint32[] private observationRange = new uint32[](2);
 
     struct PriceInfo {
         IUniswapV3Pool uniswapPool;
-        uint160 tokenAPrice;
-        uint160 sqrtRatioLower;
-        uint160 sqrtRatioUpper;
-        uint160 sqrtRatioMid;
+        uint token0Decimals;
+        uint token1Decimals;
+        uint tokenAPrice;
+        uint ratioLower;
+        uint ratioUpper;
+        uint ratioMid;
+        uint vol;
+        int rate;
+        uint call;
+        uint put;
+        int meanTick;
     }
 
     modifier ensure(uint deadline) {
@@ -44,8 +60,8 @@ contract CaravanRentRouter01 is IRentRouter01 {
     constructor(address _factory, address _WETH, address optionGreekCacheAddress, address blackScholesAddress, address uniswapV3FactoryAddress) public {
         factory = _factory;
         WETH = _WETH;
-        observationRange.push(0);
-        observationRange.push(1);
+        observationRange[0] = 10;
+        observationRange[1] = 0;
         optionGreekCache = OptionGreekCache(optionGreekCacheAddress);
         blackScholes = BlackScholes(blackScholesAddress);
         uniswapV3Factory = IUniswapV3Factory(uniswapV3FactoryAddress);
@@ -54,37 +70,75 @@ contract CaravanRentRouter01 is IRentRouter01 {
     receive() external payable {
     }
 
-    function getRentalPrice(int24 tickUpper, int24 tickLower, uint256 duration, address poolAddr) public view returns (uint256) {
+    function test(int24 tickUpper, int24 tickLower, uint256 durationInSeconds, address poolAddr, uint256 amountToken0) public view returns (PriceInfo memory) {
+        PriceInfo memory price;
+        price.uniswapPool = IUniswapV3Pool(poolAddr);
+        int24 meanTick = OracleLibrary.consult(poolAddr, 60);
+        price.meanTick = meanTick;
+        price.token0Decimals = 10**IRentERC20(price.uniswapPool.token0()).decimals();
+        price.token1Decimals = 10**IRentERC20(price.uniswapPool.token1()).decimals();
+        //getQuoteAtTick returns token1/token0 (price of token0 in terms of token1)
+        price.tokenAPrice = OracleLibrary.getQuoteAtTick(meanTick, uint128(price.token1Decimals), price.uniswapPool.token1(), price.uniswapPool.token0()); 
+        price.tokenAPrice = FullMath.mulDiv(PRECISE_UNIT, price.tokenAPrice, price.token0Decimals);
+        price.ratioLower = OracleLibrary.getQuoteAtTick(tickLower, uint128(PRECISE_UNIT), price.uniswapPool.token0(), price.uniswapPool.token1()); 
+        price.ratioUpper = OracleLibrary.getQuoteAtTick(tickUpper, uint128(PRECISE_UNIT), price.uniswapPool.token0(), price.uniswapPool.token1());
+        price.ratioMid = (price.ratioLower >> 1) + (price.ratioUpper >> 1) + (price.ratioLower & price.ratioUpper & 1);
+        price.vol = optionGreekCache.getVol(poolAddr);
+        price.rate = optionGreekCache.getRiskFreeRate();
+        IBlackScholes.PricesDeltaStdVega memory optionPrices =
+                blackScholes.pricesDeltaStdVega(
+                    durationInSeconds,
+                    optionGreekCache.getVol(poolAddr),
+                    price.tokenAPrice,
+                    price.ratioLower,
+                    optionGreekCache.getRiskFreeRate()
+                );
+        price.call = optionPrices.callPrice;
+        price.put = optionPrices.putPrice;
+        return price;
+    }
+    
+    /**
+   * @dev Returns the price (in token0?) of a rental LP with the given params
+   * @param tickUpper Upper tick of the range (where ratio is token1/token0)
+   * @param tickLower Lower tick of range
+   * @param durationInSeconds Duration of the rental in seconds
+   * @param poolAddr Address of the Uniswap V3 token0-token1 pool
+   * @param amountToken0Decimal Amount of token0 as a 27 precision decimal that should be contained within the rental position (with token0 liquidity provided as given by current ratio)
+   */
+    function getRentalPrice(int24 tickUpper, int24 tickLower, uint256 durationInSeconds, address poolAddr, uint256 amountToken0Decimal) public view returns (uint256) {
         PriceInfo memory price;
         price.uniswapPool =  IUniswapV3Pool(poolAddr);
         (int56[] memory ticks,) = price.uniswapPool.observe(observationRange);
         //ticks[1] and ticks[0] are int56
-        price.tokenAPrice = TickMath.getSqrtRatioAtTick(ticks[1] - ticks[0]); //sqrt of the ratio of the two assets (token1/token0)
-        price.sqrtRatioLower = TickMath.getSqrtRatioAtTick(tickLower); //sqrt of the ratio of the two assets (token1/token0)
-        price.sqrtRatioUpper = TickMath.getSqrtRatioAtTick(tickUpper);
-        price.sqrtRatioMid = price.sqrtRatioLower + (price.sqrtRatioLower + price.sqrtRatioUpper) / 2;
+        price.tokenAPrice = 0;//TickMath.getSqrtRatioAtTick(ticks[1] - ticks[0]); //sqrt of the ratio of the two assets (token1/token0)
+        price.ratioLower = TickMath.getSqrtRatioAtTick(tickLower); //sqrt of the ratio of the two assets (token1/token0)
+        price.ratioUpper = TickMath.getSqrtRatioAtTick(tickUpper);
+        price.ratioLower = price.ratioLower.mul(price.ratioLower);
+        price.ratioUpper = price.ratioUpper.mul(price.ratioUpper);
+        price.ratioMid = (price.ratioLower + price.ratioUpper) / 2;
         //the mid price is wrong. It must be calculated using the squared ratios, not the sqrts.
 
-        if (price.tokenAPrice > price.sqrtRatioMid) {
+        if (price.tokenAPrice > price.ratioMid) {
             IBlackScholes.PricesDeltaStdVega memory optionPrices =
                 blackScholes.pricesDeltaStdVega(
-                duration,
+                durationInSeconds,
                 optionGreekCache.getVol(poolAddr),
                 price.tokenAPrice,
-                price.sqrtRatioUpper,
+                price.ratioUpper,
                 optionGreekCache.getRiskFreeRate()
             ); // [<call price> , <put price> , <call delta> , <put delta> ] everything is in decimals            
-            return optionPrices.putPrice;
+            return optionPrices.putPrice.multiplyDecimalRoundPrecise(amountToken0Decimal.divideDecimalRoundPrecise(PRECISE_UNIT.mul(100)));
         } else {
             IBlackScholes.PricesDeltaStdVega memory optionPrices =
                 blackScholes.pricesDeltaStdVega(
-                duration,
+                durationInSeconds,
                 optionGreekCache.getVol(poolAddr),
                 price.tokenAPrice,
-                price.sqrtRatioLower,
+                price.ratioLower,
                 optionGreekCache.getRiskFreeRate()
             ); // [<call price> , <put price> , <call delta> , <put delta> ] everything is in decimals            
-            return optionPrices.callPrice;
+            return optionPrices.callPrice.multiplyDecimalRoundPrecise(amountToken0Decimal.divideDecimalRoundPrecise(PRECISE_UNIT.mul(100)));
         }
         //instantiate uniswap v3 pool
         //instantiate BlackScholes
@@ -104,7 +158,7 @@ contract CaravanRentRouter01 is IRentRouter01 {
         //create rental on existing rent platform
         address poolAddr = uniswapV3Factory.getPool(params.token0, params.token1, params.fee);
         require(poolAddr != address(0), "UNISWAP POOL DOES NOT EXIST");
-        uint256 price = getRentalPrice(params.tickUpper, params.tickLower, params.duration, poolAddr);
+        uint256 price = getRentalPrice(params.tickUpper, params.tickLower, params.duration, poolAddr, params.amount1Desired);
         require(price <= params.priceMax, "RENTAL PRICE TOO HIGH");
         require(msg.value >= price, "INSUFFICIENT FUNDS");
         if (msg.value > price) TransferHelper.safeTransferETH(msg.sender, msg.value - price);
