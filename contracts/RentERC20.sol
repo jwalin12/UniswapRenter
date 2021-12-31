@@ -2,6 +2,7 @@ pragma solidity = 0.7.6;
 import "@openzeppelin/contracts/drafts/EIP712.sol";
 import "./interfaces/IRentERC20.sol";
 import "./libraries/SafeMath.sol";
+import "hardhat/console.sol";
 
 contract RentERC20 is IRentERC20 {
     using SafeMath for uint;
@@ -80,6 +81,7 @@ contract RentERC20 is IRentERC20 {
         if (allowance[from][msg.sender] != uint(-1)) {
             allowance[from][msg.sender] = allowance[from][msg.sender].sub(value);
         }
+
         _transfer(from, to, value);
         return true;
     }

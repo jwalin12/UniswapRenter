@@ -29,24 +29,24 @@ describe("Router", async () => {
     });
 
 
-    it("should be able to get price data", async() => {
-        try {
+    // it("should be able to get price data", async() => {
+    //     try {
 
             
 
-            const lowerTick = 81609; // ETH/USDC = $3500 per ETH = 3499.90807274
-            const upperTick = 82944; // ETH/USDC = $4000 per ETH = 3999.74267845
-            const yearInSeconds = 31556926; // # of secs per year
-            let rentalPrice = await router.test(lowerTick, upperTick, yearInSeconds, "0x8ad599c3a0ff1de082011efddc58f1908eb6e6d8", BigInt(100*PRECISE_UNIT));
-            console.log(rentalPrice);
-        } catch (e) {
-            if (e != null) {
-                console.log(e);
-                console.log("Error when getting price data");
-            }
-            expect(e == null, "error %v", e);
-        }            
-    });
+    //         const lowerTick = 81609; // ETH/USDC = $3500 per ETH = 3499.90807274
+    //         const upperTick = 82944; // ETH/USDC = $4000 per ETH = 3999.74267845
+    //         const yearInSeconds = 31556926; // # of secs per year
+    //         let rentalPrice = await router.test(lowerTick, upperTick, yearInSeconds, "0x8ad599c3a0ff1de082011efddc58f1908eb6e6d8", BigInt(100*PRECISE_UNIT));
+    //         console.log(rentalPrice);
+    //     } catch (e) {
+    //         if (e != null) {
+    //             console.log(e);
+    //             console.log("Error when getting price data");
+    //         }
+    //         expect(e == null, "error %v", e);
+    //     }            
+    // });
 
 
     it("should be able to add and remove ETH liquidity", async() => {
@@ -71,9 +71,10 @@ describe("Router", async () => {
             WETHPool = await new ethers.Contract(poolAddr, rentPoolABI, account);
             let newReserve = await WETHPool.getReserves()
             expect(ethers.utils.parseEther('1') == newReserve, "FUNDS NOT SENT TO POOL");
+            console.log("ACCT LP BALANCE", await WETHPool.balanceOf(account.address));
             //TODO: try approving smt 
-            await WETHPool.approve(router.address, ethers.utils.parseEther('0.00001'));
-            await router.removeLiquidityETH(ethers.utils.parseEther('0.00001'), ethers.utils.parseEther('0'),ethers.utils.parseEther('0'), account.address, ethers.BigNumber.from(deadline));
+            await WETHPool.approve(router.address, ethers.utils.parseEther('1'));
+            await router.removeLiquidityETH(ethers.utils.parseEther('0.1'), ethers.utils.parseEther('0'),ethers.utils.parseEther('0'), account.address, ethers.BigNumber.from(deadline));
             expect(await provider.getBalance(account.address) == origBal-ethers.utils.parseEther('0.01')+ethers.utils.parseEther('0.0000001') ,  "FUNDS NOT RETURNED TO SENDER");
 
         } catch (e) {
@@ -82,8 +83,6 @@ describe("Router", async () => {
                 console.log("Error when working with pool liquidity");
             }
             expect(e == null, "error %v", e);
-
-
         }
           
 
