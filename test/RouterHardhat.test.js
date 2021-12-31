@@ -62,7 +62,8 @@ describe("Router", async () => {
             let newReserve = await WETHPool.getReserves()
             expect(ethers.utils.parseEther('1') == newReserve, "FUNDS NOT SENT TO POOL");
             //TODO: try approving smt 
-            await router.removeLiquidityETH(ethers.utils.parseEther('0.0000000000001'), ethers.utils.parseEther('0'),ethers.utils.parseEther('0'), account.address, ethers.BigNumber.from(deadline));
+            await WETHPool.approve(router.address, ethers.utils.parseEther('0.00001'));
+            await router.removeLiquidityETH(ethers.utils.parseEther('0.00001'), ethers.utils.parseEther('0'),ethers.utils.parseEther('0'), account.address, ethers.BigNumber.from(deadline));
             expect(await provider.getBalance(account.address) == origBal-ethers.utils.parseEther('0.01')+ethers.utils.parseEther('0.0000001') ,  "FUNDS NOT RETURNED TO SENDER");
 
         } catch (e) {
