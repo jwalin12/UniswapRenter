@@ -3,66 +3,62 @@ pragma abicoder v2;
 
 
 import "./interfaces/IRentPlatform.sol";
+import "./interfaces/IAutomatedRentalEscrow.sol";
 import '@uniswap/v3-periphery/contracts/interfaces/INonfungiblePositionManager.sol';
 
+//TODO: make so only router interacts with external contract functions
 
-contract AutomatedRentalEscrow is IRentPlatform {
+//
 
-    mapping(address => mapping(int24 => mapping(int24 => uint256))) getOldPositions; //Maps uniswapv3Pool -> ticklower -> tickupper -> tokenID
-    mapping(uint256 => RentInfo) public tokenIdToRentInfo;
 
-    INonfungiblePositionManager private immutable UniswapNonFungiblePositionManager;
+contract AutomatedRentalEscrow is IAutomatedRentalEscrow {
 
-    constructor(address uniswapNFTPositionManagerAddress) { 
+    mapping(uint256 => IRentPlatform.RentInfo) public tokenIdToRentInfo;
+
+    address public _automatedRentalPlatform;
+    address public _owner;
+
+
+
+
+    constructor(address uniswapNFTPositionManagerAddress, address automatedRentalPlatform, address  owner) { 
         UniswapNonFungiblePositionManager = INonfungiblePositionManager(uniswapNFTPositionManagerAddress);
+        _automatedRentalPlatform = automatedRentalPlatform;
+        _owner = owner;
     
     }
 
-
-    function createNewRental(BuyRentalParams memory params, address uniswapPoolAddr, address _renter) external override {
-
-        uint256 tokenId = getOldPositions[uniswapPoolAddr][params.tickUpper][params.tickLower];
-        if (tokenId != 0) {
-            _reuseOldPosition(tokenId, uniswapPoolAddr, params);
-        }
-
-        else {
-            (uint256 tokenID, , , ) = UniswapNonFungiblePositionManager.mint(
-            INonfungiblePositionManager.MintParams({
-            token0: params.token0,
-            token1: params.token1,
-            fee: params.fee,
-            recipient: address(this),
-            tickLower: params.tickLower,
-            tickUpper: params.tickUpper,
-            amount0Desired: params.amount0Desired,
-            amount1Desired: params.amount1Desired,
-            amount0Min: params.amount0Min,
-            amount1Min: params.amount1Min,
-            deadline: params.deadline
-            })
-            );
-
-        }
-        tokenIdToRentInfo[tokenId] = RentInfo({
-            originalOwner: payable(address(this)),
-            renter: payable(_renter),
-            tokenId: tokenId,
-            expiryDate: block.timestamp + params.duration,
-        
-            uniswapPoolAddress: uniswapPoolAddr
-        });
-
-        
+    function setAutomatedRentalPlatform(address automatedRentalPlatform) external {
+        require(msg.sender == _owner, "UNAUTHORIZED ACTION");
+        _automatedRentalPlatform = automatedRentalPlatform;
     }
 
-    function reclaimRental(uint256 tokenId) external override {
-        RentInfo memory rentInfo = tokenIdToRentInfo[tokenId];
-        require(msg.sender == rentInfo.originalOwner, "UNAUTHORIZED RECLAMATION");
+    function changeOwner(address newOwner) external {
+            require(msg.sender == _owner, "UNAUTHORIZED ACTION");
+            _owner = newOwner;
+        }
+
+
+    function handleNewRental(uint256 tokenId, IRentPlatform.BuyRentalParams memory params, address uniswapPoolAddr, address _renter) external override {
+        require(msg.sender = _automatedRentalPlatform,"UNAUTHORIZED ACTION");
+        tokenIdToRentInfo[tokenId] = IRentPlatform.RentInfo({
+                originalOwner: address(this),
+                renter: payable(_renter),
+                tokenId: tokenId,
+                expiryDate: block.timestamp + params.duration,
+            
+                uniswapPoolAddress: uniswapPoolAddr
+            });
+
+    }
+
+    function handleExpiredRental(uint256 tokenId) external override {
+        IRentPlatform.RentInfo memory rentInfo = tokenIdToRentInfo[tokenId];
+        require(msg.sender == _automatedRentalPlatform, "UNAUTHORIZED RECLAMATION");
         require(block.timestamp >= rentInfo.expiryDate, "RENTAL NOT YET EXPIRED");
         tokenIdToRentInfo[tokenId].renter = address(0);
         returnLiquidity(tokenId);
-        (
+                (
             ,
            ,
            ,
@@ -83,6 +79,8 @@ contract AutomatedRentalEscrow is IRentPlatform {
 
 
     function returnLiquidity(uint256 tokenId) private {
+
+
         (
             ,
             ,
@@ -106,11 +104,14 @@ contract AutomatedRentalEscrow is IRentPlatform {
             amount1Min: 0,
             deadline: block.timestamp + 10000
             })
+
+
+        //TODO: return liquidity to pools
         );
 
     }
 
-    function _reuseOldPosition(uint256 tokenId, address uniswapPoolAddr, BuyRentalParams memory params) private {
+    function reuseOldPosition(uint256 tokenId, address uniswapPoolAddr, IRentPlatform.BuyRentalParams memory params) external override {
         UniswapNonFungiblePositionManager.increaseLiquidity(
            INonfungiblePositionManager.IncreaseLiquidityParams({
             tokenId: tokenId,
@@ -128,9 +129,9 @@ contract AutomatedRentalEscrow is IRentPlatform {
 
 
     function collectFeesForCurrentRenter(uint256 tokenId) external override returns (uint256 token0amt, uint256 token1amt) {
-        RentInfo memory rentInfo = tokenIdToRentInfo[tokenId];
+        IRentPlatform.RentInfo memory rentInfo = tokenIdToRentInfo[tokenId];
+        require(msg.sender == _automatedRentalPlatform, "UNAUTHORIZED RECLAMATION");
         require(block.timestamp < rentInfo.expiryDate, "the lease has expired!");
-        require(msg.sender == rentInfo.renter, "you are not renting this asset!");
          (token0amt, token1amt) = UniswapNonFungiblePositionManager.collect(INonfungiblePositionManager.CollectParams({
             tokenId: tokenId,
             recipient: rentInfo.renter,
