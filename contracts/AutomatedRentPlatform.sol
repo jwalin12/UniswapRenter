@@ -1,15 +1,16 @@
-pragma solidty >= 0.7.6;
+pragma solidity >= 0.7.6;
 pragma abicoder v2;
 
 import "./interfaces/IRentPlatform.sol";
 import "./interfaces/IAutomatedRentalEscrow.sol";
+import "./interfaces/IRentPlatform.sol";
 import '@uniswap/v3-periphery/contracts/interfaces/INonfungiblePositionManager.sol';
 
 
     
 
 
-contract AutomatedRentPlatform {
+contract AutomatedRentPlatform is IRentPlatform  {
 
     address _owner;
     address _rentalEscrow;
@@ -38,7 +39,8 @@ contract AutomatedRentPlatform {
             }
 
             else {
-                (uint256 tokenID, , , ) = INonfungiblePositionManager(IAutomatedRentalEscrow(_rentalEscrow).UniswapNonFungiblePositionManager).mint(
+                INonfungiblePositionManager posManager = IAutomatedRentalEscrow(_rentalEscrow).getUniswapPositionManager();
+                (uint256 tokenID, , , ) = posManager.mint(
                 INonfungiblePositionManager.MintParams({
                 token0: params.token0,
                 token1: params.token1,

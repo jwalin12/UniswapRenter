@@ -17,6 +17,10 @@ contract AutomatedRentalEscrow is IAutomatedRentalEscrow {
 
     address public _automatedRentalPlatform;
     address public _owner;
+    
+    INonfungiblePositionManager public UniswapNonFungiblePositionManager; 
+
+    mapping(address => mapping(int24 => mapping(int24 => uint256))) public oldPositions;
 
 
 
@@ -26,6 +30,12 @@ contract AutomatedRentalEscrow is IAutomatedRentalEscrow {
         _automatedRentalPlatform = automatedRentalPlatform;
         _owner = owner;
     
+    }
+    function getUniswapPositionManager() external override returns (INonfungiblePositionManager UniswapNonFungiblePositionManager) {
+        return UniswapNonFungiblePositionManager;
+    }
+    function getOldPositions(address uniswapPoolAddr, int24 tickUpper, int24 tickLower) external override returns (uint256 tokenId) {
+        tokenId = oldPositions[uniswapPoolAddr][tickUpper][tickLower];
     }
 
     function setAutomatedRentalPlatform(address automatedRentalPlatform) external {
@@ -40,9 +50,9 @@ contract AutomatedRentalEscrow is IAutomatedRentalEscrow {
 
 
     function handleNewRental(uint256 tokenId, IRentPlatform.BuyRentalParams memory params, address uniswapPoolAddr, address _renter) external override {
-        require(msg.sender = _automatedRentalPlatform,"UNAUTHORIZED ACTION");
+        require(msg.sender == payable(_automatedRentalPlatform),"UNAUTHORIZED ACTION");
         tokenIdToRentInfo[tokenId] = IRentPlatform.RentInfo({
-                originalOwner: address(this),
+                originalOwner: payable(address(this)),
                 renter: payable(_renter),
                 tokenId: tokenId,
                 expiryDate: block.timestamp + params.duration,
@@ -73,7 +83,7 @@ contract AutomatedRentalEscrow is IAutomatedRentalEscrow {
            
         ) = UniswapNonFungiblePositionManager.positions(tokenId);
 
-        getOldPositions[rentInfo.uniswapPoolAddress][tickLower][tickUpper] = tokenId;
+        oldPositions[rentInfo.uniswapPoolAddress][tickLower][tickUpper] = tokenId;
 
     }
 
@@ -123,7 +133,7 @@ contract AutomatedRentalEscrow is IAutomatedRentalEscrow {
             })
         );
 
-        getOldPositions[uniswapPoolAddr][params.tickLower][params.tickUpper] = 0;
+        oldPositions[uniswapPoolAddr][params.tickLower][params.tickUpper] = 0;
 
     } 
 
