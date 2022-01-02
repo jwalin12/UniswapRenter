@@ -115,8 +115,6 @@ contract RentPool is IRentPool, RentERC20 {
         address _token = token;                                // gas savings
         uint balance = IERC20(_token).balanceOf(address(this));
         uint liquidity = balanceOf[address(this)];
-        
-
         bool feeOn = _mintFee();
         uint _totalSupply = totalSupply; // gas savings, must be defined here since totalSupply can update in _mintFee
         uint256 amountOfTokens = liquidity.mul(balance) / _totalSupply; // using balances ensures pro-rata distribution

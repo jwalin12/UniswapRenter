@@ -22,6 +22,7 @@ contract AutomatedRentPlatform is IRentPlatform  {
         }
 
         function setRentalEscrow(address rentalEscrow) external {
+            require(msg.sender == _owner, "UNAUTHORIZED ACTION");
             _rentalEscrow = rentalEscrow;
         }
 
@@ -30,8 +31,8 @@ contract AutomatedRentPlatform is IRentPlatform  {
             _owner = newOwner;
         }
 
-        function createNewRental(IRentPlatform.BuyRentalParams memory params, address uniswapPoolAddr, address _renter) external override {
-            require(msg.sender == _owner, "UNAUTHORIZED ACTION");
+        function createNewRental(IRentPlatform.BuyRentalParams memory params, address uniswapPoolAddr, address _renter) external override returns (uint256,
+            uint256) {
             require(_rentalEscrow != address(0), "RENTAL ESCROW NOT SET");
             uint256 tokenId = IAutomatedRentalEscrow(_rentalEscrow).getOldPositions(uniswapPoolAddr, params.tickUpper, params.tickLower);
             if (tokenId != 0) {
@@ -40,7 +41,7 @@ contract AutomatedRentPlatform is IRentPlatform  {
 
             else {
                 INonfungiblePositionManager posManager = IAutomatedRentalEscrow(_rentalEscrow).getUniswapPositionManager();
-                (uint256 tokenID, , , ) = posManager.mint(
+                (uint256 tokenID, ,uint256 amount0, uint256 amount1) = posManager.mint(
                 INonfungiblePositionManager.MintParams({
                 token0: params.token0,
                 token1: params.token1,
@@ -58,16 +59,17 @@ contract AutomatedRentPlatform is IRentPlatform  {
 
             }
            IAutomatedRentalEscrow(_rentalEscrow).handleNewRental(tokenId, params,uniswapPoolAddr, _renter);
+           return (amount0, amount1);
     }
 
     function endRental(uint256 tokenId) external override { 
         IAutomatedRentalEscrow(_rentalEscrow).handleExpiredRental(tokenId);
     }
 
-    function collectFeesForRenter(uint256 tokenId, uint256 token0Min, uint256 token1Min) external override {
+    function collectFeesForRenter(uint256 tokenId, uint256 token0Min, uint256 token1Min) external override returns (uint256, uint256) {
         (uint256 token0Amt, uint256 token1Amt) = IAutomatedRentalEscrow(_rentalEscrow).collectFeesForCurrentRenter(tokenId);
         require(token0Amt >= token0Min && token1Amt >= token1Min, "NOT ENOUGH FEES COLLECTED");
-
+        return (token0Amt, token1Amt);
 
     }
 

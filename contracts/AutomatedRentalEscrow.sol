@@ -22,9 +22,6 @@ contract AutomatedRentalEscrow is IAutomatedRentalEscrow {
 
     mapping(address => mapping(int24 => mapping(int24 => uint256))) public oldPositions;
 
-
-
-
     constructor(address uniswapNFTPositionManagerAddress, address automatedRentalPlatform, address  owner) { 
         UniswapNonFungiblePositionManager = INonfungiblePositionManager(uniswapNFTPositionManagerAddress);
         _automatedRentalPlatform = automatedRentalPlatform;
@@ -121,8 +118,8 @@ contract AutomatedRentalEscrow is IAutomatedRentalEscrow {
 
     }
 
-    function reuseOldPosition(uint256 tokenId, address uniswapPoolAddr, IRentPlatform.BuyRentalParams memory params) external override {
-        UniswapNonFungiblePositionManager.increaseLiquidity(
+    function reuseOldPosition(uint256 tokenId, address uniswapPoolAddr, IRentPlatform.BuyRentalParams memory params) external override returns(uint256 amount0, uint256 amount1) {
+        ( ,amount0, amount1) = UniswapNonFungiblePositionManager.increaseLiquidity(
            INonfungiblePositionManager.IncreaseLiquidityParams({
             tokenId: tokenId,
             amount0Desired: params.amount0Desired,

@@ -12,6 +12,7 @@ import './interfaces/IRentRouter01.sol';
 import './interfaces/IBlackScholes.sol';
 import './interfaces/IRentPool.sol';
 import './interfaces/IRentERC20.sol';
+import "./libraries/FeeMath.sol";
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import './interfaces/IWETH.sol';
 import './OptionGreekCache.sol';
@@ -19,6 +20,7 @@ import './BlackScholes.sol';
 import "hardhat/console.sol";
 import "./synthetix/SignedSafeDecimalMath.sol";
 import "./synthetix/SafeDecimalMath.sol";
+
 
 contract CaravanRentRouter01 is IRentRouter01 {
     using SafeMath for uint;
@@ -57,7 +59,7 @@ contract CaravanRentRouter01 is IRentRouter01 {
         _;
     }
 
-    constructor(address _factory, address _WETH, address optionGreekCacheAddress, address blackScholesAddress, address uniswapV3FactoryAddress) public {
+    constructor(address _factory, address _WETH, address optionGreekCacheAddress, address blackScholesAddress, address rentPlatform, address uniswapV3FactoryAddress) public {
         factory = _factory;
         WETH = _WETH;
         observationRange[0] = 10;
@@ -65,10 +67,12 @@ contract CaravanRentRouter01 is IRentRouter01 {
         optionGreekCache = OptionGreekCache(optionGreekCacheAddress);
         blackScholes = BlackScholes(blackScholesAddress);
         uniswapV3Factory = IUniswapV3Factory(uniswapV3FactoryAddress);
+        rentPlatform = IRentPlatform(rentPlatform);
     }
 
     receive() external payable {
     }
+
 
     function test(int24 tickUpper, int24 tickLower, uint256 durationInSeconds, address poolAddr, uint256 amountToken0) public view returns (PriceInfo memory) {
         PriceInfo memory price;
@@ -149,7 +153,7 @@ contract CaravanRentRouter01 is IRentRouter01 {
         //return whatever BlackScholes did
     }
 
-    function buyRentalListing(IRentPlatform.BuyRentalParams memory params) external payable {
+    function buyRental(IRentPlatform.BuyRentalParams memory params) external payable {
         
         //check if enough liquidity is in the pool
         IRentPool pool0 = IRentPool(IRentPoolFactory(factory).getPool(params.token0));
@@ -162,11 +166,21 @@ contract CaravanRentRouter01 is IRentRouter01 {
         require(price <= params.priceMax, "RENTAL PRICE TOO HIGH");
         require(msg.value >= price, "INSUFFICIENT FUNDS");
         if (msg.value > price) TransferHelper.safeTransferETH(msg.sender, msg.value - price);
+        (uint amount0, uint amount1) = rentPlatform.delegatecall(abi.encodeWithSignature("createNewRental(IRentPlatform.BuyRentalParams memory params, address uniswapPoolAddr, address _renter)",BuyRentalParams, poolAddr ,msg.sender));
 
-        //send back dust ETH 
-        //who is the owner of these rentals? managerial contract that we can collect fees from? or rent platform contract which could do the same.
-        //rent platform handles everything with rentals and owns all pool rentals
-        //when interacting with pool, use functions in this router
+        //create rental to get amt?
+
+
+        //split fee amongst pool
+        (uint token0Fee, uint token1Fee) = calculateFeeSplit(pool0, pool1, amount0, amount1, price);
+        TransferHelper.safeTransferETH(pool0, token0Fee);
+        TransferHelper.safeTransferETH(pool1, token1Fee);
+
+        //send back dust ETH
+        if (msg.value > amountETH) TransferHelper.safeTransferETH(msg.sender, msg.value - amountETH);
+
+
+
     }
     
     // **** ADD LIQUIDITY ****

@@ -28,9 +28,9 @@ interface IRentPlatform {
     }
 
 
-    function createNewRental(BuyRentalParams memory params, address uniswapPoolAddr, address _renter) external;
+    function createNewRental(IRentPlatform.BuyRentalParams memory params, address uniswapPoolAddr, address _renter) external override returns (uint256, uint256);
 
     function endRental(uint256 tokenId) external;
 
-    function collectFeesForRenter(uint256 tokenId, uint256 token0Min, uint256 token1Min) external;
+    function collectFeesForRenter(uint256 tokenId, uint256 token0Min, uint256 token1Min) external returns (uint256, uint256);
 }
