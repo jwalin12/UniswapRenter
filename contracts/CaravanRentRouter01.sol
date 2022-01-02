@@ -15,11 +15,10 @@ import './interfaces/IRentERC20.sol';
 import "./libraries/FeeMath.sol";
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import './interfaces/IWETH.sol';
-import './OptionGreekCache.sol';
-import './BlackScholes.sol';
-import "hardhat/console.sol";
-import "./synthetix/SignedSafeDecimalMath.sol";
+import './interfaces/IOptionGreekCache.sol';
 import "./synthetix/SafeDecimalMath.sol";
+import "./synthetix/SignedSafeDecimalMath.sol";
+import "hardhat/console.sol";
 
 
 contract CaravanRentRouter01 is IRentRouter01 {
@@ -34,9 +33,10 @@ contract CaravanRentRouter01 is IRentRouter01 {
     address public immutable factory;
     address public immutable WETH;
 
-    OptionGreekCache private immutable optionGreekCache;
-    BlackScholes private immutable blackScholes;
+    IOptionGreekCache private immutable optionGreekCache;
+    IBlackScholes private immutable blackScholes;
     IUniswapV3Factory private immutable uniswapV3Factory;
+    IRentPlatform private immutable rentPlatform;
     uint32[] private observationRange = new uint32[](2);
 
     struct PriceInfo {
@@ -59,15 +59,15 @@ contract CaravanRentRouter01 is IRentRouter01 {
         _;
     }
 
-    constructor(address _factory, address _WETH, address optionGreekCacheAddress, address blackScholesAddress, address rentPlatform, address uniswapV3FactoryAddress) public {
+    constructor(address _factory, address _WETH, address optionGreekCacheAddress, address blackScholesAddress, address rentPlatformAddress, address uniswapV3FactoryAddress) public {
         factory = _factory;
         WETH = _WETH;
         observationRange[0] = 10;
         observationRange[1] = 0;
-        optionGreekCache = OptionGreekCache(optionGreekCacheAddress);
-        blackScholes = BlackScholes(blackScholesAddress);
+        optionGreekCache = IOptionGreekCache(optionGreekCacheAddress);
+        blackScholes = IBlackScholes(blackScholesAddress);
         uniswapV3Factory = IUniswapV3Factory(uniswapV3FactoryAddress);
-        rentPlatform = IRentPlatform(rentPlatform);
+        rentPlatform = IRentPlatform(rentPlatformAddress);
     }
 
     receive() external payable {
@@ -166,18 +166,16 @@ contract CaravanRentRouter01 is IRentRouter01 {
         require(price <= params.priceMax, "RENTAL PRICE TOO HIGH");
         require(msg.value >= price, "INSUFFICIENT FUNDS");
         if (msg.value > price) TransferHelper.safeTransferETH(msg.sender, msg.value - price);
-        (uint amount0, uint amount1) = rentPlatform.delegatecall(abi.encodeWithSignature("createNewRental(IRentPlatform.BuyRentalParams memory params, address uniswapPoolAddr, address _renter)",BuyRentalParams, poolAddr ,msg.sender));
+        (bool success, bytes memory result) = address(rentPlatform).delegatecall(abi.encodeWithSignature("createNewRental(IRentPlatform.BuyRentalParams memory params, address uniswapPoolAddr, address _renter)",params, poolAddr ,msg.sender));
+        require(success, "FAILED TO CREATE RENTAL");
+        (uint256 amount0, uint256 amount1) = abi.decode(result, (uint256, uint256));
 
-        //create rental to get amt?
-
-
-        //split fee amongst pool
-        (uint token0Fee, uint token1Fee) = calculateFeeSplit(pool0, pool1, amount0, amount1, price);
-        TransferHelper.safeTransferETH(pool0, token0Fee);
-        TransferHelper.safeTransferETH(pool1, token1Fee);
+        (uint token0Fee, uint token1Fee) = FeeMath.calculateFeeSplit(pool0, pool1, amount0, amount1, price);
+        TransferHelper.safeTransferETH(address(pool0), token0Fee);
+        TransferHelper.safeTransferETH(address(pool1), token1Fee);
 
         //send back dust ETH
-        if (msg.value > amountETH) TransferHelper.safeTransferETH(msg.sender, msg.value - amountETH);
+        if (msg.value > price) TransferHelper.safeTransferETH(msg.sender, msg.value - price);
 
 
 

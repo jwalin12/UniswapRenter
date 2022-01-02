@@ -1,7 +1,7 @@
 pragma solidity = 0.7.6;
 import "@openzeppelin/contracts/drafts/EIP712.sol";
 import "./interfaces/IRentERC20.sol";
-import "./libraries/SafeMath.sol";
+import "@openzeppelin/contracts/math/SafeMath.sol";
 import "hardhat/console.sol";
 
 contract RentERC20 is IRentERC20 {

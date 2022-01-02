@@ -33,15 +33,18 @@ contract AutomatedRentPlatform is IRentPlatform  {
 
         function createNewRental(IRentPlatform.BuyRentalParams memory params, address uniswapPoolAddr, address _renter) external override returns (uint256,
             uint256) {
+                
             require(_rentalEscrow != address(0), "RENTAL ESCROW NOT SET");
             uint256 tokenId = IAutomatedRentalEscrow(_rentalEscrow).getOldPositions(uniswapPoolAddr, params.tickUpper, params.tickLower);
+            uint256 amount0;
+            uint256 amount1;
             if (tokenId != 0) {
-                IAutomatedRentalEscrow(_rentalEscrow).reuseOldPosition(tokenId, uniswapPoolAddr, params);
+                (amount0, amount1) = IAutomatedRentalEscrow(_rentalEscrow).reuseOldPosition(tokenId, uniswapPoolAddr, params);
             }
 
             else {
                 INonfungiblePositionManager posManager = IAutomatedRentalEscrow(_rentalEscrow).getUniswapPositionManager();
-                (uint256 tokenID, ,uint256 amount0, uint256 amount1) = posManager.mint(
+                (tokenId, , amount0, amount1) = posManager.mint(
                 INonfungiblePositionManager.MintParams({
                 token0: params.token0,
                 token1: params.token1,

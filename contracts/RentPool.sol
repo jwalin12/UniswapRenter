@@ -2,7 +2,7 @@ pragma solidity =0.7.6;
 
 import "./libraries/Math.sol";
 import "./libraries/UQ112x112.sol";
-import "./libraries/SafeMath.sol";
+import "@openzeppelin/contracts/math/SafeMath.sol";
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "./interfaces/IRentPool.sol";
 import "./RentERC20.sol";

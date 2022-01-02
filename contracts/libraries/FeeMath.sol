@@ -3,7 +3,7 @@ pragma solidity = 0.7.6;
 
 import "../interfaces/IRentPoolFactory.sol";
 import "../interfaces/IRentPool.sol";
-import "./SafeMath.sol";
+import "@openzeppelin/contracts/math/SafeMath.sol";
 
 
 
@@ -17,8 +17,6 @@ library FeeMath {
 
 
     function calculateFeeSplit(IRentPool pool0, IRentPool pool1, uint256 amount0, uint256 amount1, uint256 fee) public returns (uint256 token0Fee, uint256 token1Fee) {
-        IRentPool pool0 = IRentPool(factory.getPool(token0));
-        IRentPool pool1 = IRentPool(factory.getPool(token1));
 
         (uint256 totalAmountToken0, , ) = pool0.getReserves();
         (uint256 totalAmountToken1, , ) = pool1.getReserves();
