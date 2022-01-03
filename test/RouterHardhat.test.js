@@ -19,7 +19,7 @@ describe("Router", async () => {
         BlackScholes = await ethers.getContractFactory("BlackScholes");
         blackScholes = await BlackScholes.deploy();
         GreekCache = await ethers.getContractFactory("OptionGreekCache");
-        greekCache = await GreekCache.deploy(account.address, BigInt(.01*PRECISE_UNIT), "0x8ad599c3a0ff1de082011efddc58f1908eb6e6d8", BigInt(.17*PRECISE_UNIT));
+        greekCache = await GreekCache.deploy(account.address, BigInt(.01*PRECISE_UNIT), "0x8ad599c3a0ff1de082011efddc58f1908eb6e6d8", BigInt(.94*PRECISE_UNIT));
         Router = await ethers.getContractFactory("CaravanRentRouter01");
         WETHFactory = await ethers.getContractFactory("WETH");
         WETH = await WETHFactory.deploy();
@@ -31,10 +31,10 @@ describe("Router", async () => {
 
     it("should be able to get price data", async() => {
         try {
-            const lowerTick = 81609; // ETH/USDC = $3500 per ETH = 3499.90807274
-            const upperTick = 82944; // ETH/USDC = $4000 per ETH = 3999.74267845
+            const lowerTick = -81609; //81609; // ETH/USDC = $3500 per ETH = 3499.90807274
+            const upperTick = -82944; //82944; // ETH/USDC = $4000 per ETH = 3999.74267845
             const yearInSeconds = 31556926; // # of secs per year
-            let rentalPrice = await router.test(lowerTick, upperTick, yearInSeconds, "0x8ad599c3a0ff1de082011efddc58f1908eb6e6d8", BigInt(100*PRECISE_UNIT));
+            let rentalPrice = await router.getRentalPrice(lowerTick, upperTick, yearInSeconds, "0x8ad599c3a0ff1de082011efddc58f1908eb6e6d8", BigInt(100*1000000));
             console.log(rentalPrice);
         } catch (e) {
             if (e != null) {
