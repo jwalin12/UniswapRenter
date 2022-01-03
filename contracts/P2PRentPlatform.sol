@@ -13,7 +13,7 @@ import "utils/structs/tokenAddresses.sol";
 
 /// @title NFT positions
 /// @notice Wraps Uniswap V3 positions in the ERC721 non-fungible token interface
-contract RentPlatform is
+contract P2PRentPlatform is
     Multicall,
     IERC721Receiver
     {

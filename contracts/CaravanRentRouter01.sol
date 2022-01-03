@@ -12,13 +12,14 @@ import './interfaces/IRentRouter01.sol';
 import './interfaces/IBlackScholes.sol';
 import './interfaces/IRentPool.sol';
 import './interfaces/IRentERC20.sol';
+import "./libraries/FeeMath.sol";
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import './interfaces/IWETH.sol';
-import './OptionGreekCache.sol';
-import './BlackScholes.sol';
-import "hardhat/console.sol";
-import "./synthetix/SignedSafeDecimalMath.sol";
+import './interfaces/IOptionGreekCache.sol';
 import "./synthetix/SafeDecimalMath.sol";
+import "./synthetix/SignedSafeDecimalMath.sol";
+import "hardhat/console.sol";
+
 
 contract CaravanRentRouter01 is IRentRouter01 {
     using SafeMath for uint;
@@ -32,9 +33,10 @@ contract CaravanRentRouter01 is IRentRouter01 {
     address public immutable factory;
     address public immutable WETH;
 
-    OptionGreekCache private immutable optionGreekCache;
-    BlackScholes private immutable blackScholes;
+    IOptionGreekCache private immutable optionGreekCache;
+    IBlackScholes private immutable blackScholes;
     IUniswapV3Factory private immutable uniswapV3Factory;
+    IRentPlatform private immutable rentPlatform;
     uint32[] private observationRange = new uint32[](2);
 
     struct PriceInfo {
@@ -57,18 +59,20 @@ contract CaravanRentRouter01 is IRentRouter01 {
         _;
     }
 
-    constructor(address _factory, address _WETH, address optionGreekCacheAddress, address blackScholesAddress, address uniswapV3FactoryAddress) public {
+    constructor(address _factory, address _WETH, address optionGreekCacheAddress, address blackScholesAddress, address rentPlatformAddress, address uniswapV3FactoryAddress) public {
         factory = _factory;
         WETH = _WETH;
         observationRange[0] = 10;
         observationRange[1] = 0;
-        optionGreekCache = OptionGreekCache(optionGreekCacheAddress);
-        blackScholes = BlackScholes(blackScholesAddress);
+        optionGreekCache = IOptionGreekCache(optionGreekCacheAddress);
+        blackScholes = IBlackScholes(blackScholesAddress);
         uniswapV3Factory = IUniswapV3Factory(uniswapV3FactoryAddress);
+        rentPlatform = IRentPlatform(rentPlatformAddress);
     }
 
     receive() external payable {
     }
+
 
     function test(int24 tickUpper, int24 tickLower, uint256 durationInSeconds, address poolAddr, uint256 amountToken0) public view returns (PriceInfo memory) {
         PriceInfo memory price;
@@ -168,7 +172,7 @@ contract CaravanRentRouter01 is IRentRouter01 {
         }
     }
 
-    function buyRentalListing(IRentPlatform.BuyRentalParams memory params) external payable {
+    function buyRental(IRentPlatform.BuyRentalParams memory params) external payable {
         
         //check if enough liquidity is in the pool
         IRentPool pool0 = IRentPool(IRentPoolFactory(factory).getPool(params.token0));
@@ -181,11 +185,19 @@ contract CaravanRentRouter01 is IRentRouter01 {
         require(price <= params.priceMax, "RENTAL PRICE TOO HIGH");
         require(msg.value >= price, "INSUFFICIENT FUNDS");
         if (msg.value > price) TransferHelper.safeTransferETH(msg.sender, msg.value - price);
+        (bool success, bytes memory result) = address(rentPlatform).delegatecall(abi.encodeWithSignature("createNewRental(IRentPlatform.BuyRentalParams memory params, address uniswapPoolAddr, address _renter)",params, poolAddr ,msg.sender));
+        require(success, "FAILED TO CREATE RENTAL");
+        (uint256 amount0, uint256 amount1) = abi.decode(result, (uint256, uint256));
 
-        //send back dust ETH 
-        //who is the owner of these rentals? managerial contract that we can collect fees from? or rent platform contract which could do the same.
-        //rent platform handles everything with rentals and owns all pool rentals
-        //when interacting with pool, use functions in this router
+        (uint token0Fee, uint token1Fee) = FeeMath.calculateFeeSplit(pool0, pool1, amount0, amount1, price);
+        TransferHelper.safeTransferETH(address(pool0), token0Fee);
+        TransferHelper.safeTransferETH(address(pool1), token1Fee);
+
+        //send back dust ETH
+        if (msg.value > price) TransferHelper.safeTransferETH(msg.sender, msg.value - price);
+
+
+
     }
     
     // **** ADD LIQUIDITY ****
