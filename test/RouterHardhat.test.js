@@ -4,6 +4,18 @@ const { ethers } = require("hardhat");
 const rentPoolABI = require("../data/abi/contracts/RentPool.sol/RentPool.json");
 const PRECISE_UNIT = 1e18;
 
+const intToDecimals = async (i, tokenAddress) => {
+    const prov = new ethers.providers.Web3Provider(network.provider);
+    const abi = [
+        "function balanceOf(walletAddress) view returns (uint256)",
+        "function decimals() view returns (uint256)"
+      ];
+    const tok = new ethers.Contract(tokenAddress, abi, prov);
+    const decimals = await tok.decimals();
+    console.log(decimals, i/decimals)
+    return i / decimals;
+};
+
 describe("Router", async () => {
 
     let router;
