@@ -14,17 +14,30 @@ describe("Router", async () => {
 
     it("should deploy",async () => {
         [account] = await ethers.getSigners();
+        FeeMath = await ethers.getContractFactory("FeeMath");
+        feeMath = await FeeMath.deploy();
         Factory = await ethers.getContractFactory("RentPoolFactory");
         rentPoolFactory = await Factory.deploy(account.address);
         BlackScholes = await ethers.getContractFactory("BlackScholes");
         blackScholes = await BlackScholes.deploy();
         GreekCache = await ethers.getContractFactory("OptionGreekCache");
         greekCache = await GreekCache.deploy(account.address, BigInt(.01*PRECISE_UNIT), "0x8ad599c3a0ff1de082011efddc58f1908eb6e6d8", BigInt(.17*PRECISE_UNIT));
-        Router = await ethers.getContractFactory("CaravanRentRouter01");
+        Router = await ethers.getContractFactory("CaravanRentRouter01", {
+            libraries: {
+                FeeMath: feeMath.address,
+            },
+        });
         WETHFactory = await ethers.getContractFactory("WETH");
         WETH = await WETHFactory.deploy();
-        router = await Router.deploy(rentPoolFactory.address,WETH.address,greekCache.address, blackScholes.address, "0x1F98431c8aD98523631AE4a59f267346ea31F984");
+        RentalPlatform = await ethers.getContractFactory("AutomatedRentPlatform");
+        rentalPlatform = await RentalPlatform.deploy(account.address);
+        RentalEscrow = await ethers.getContractFactory("AutomatedRentalEscrow");
+        rentalEscrow = await RentalEscrow.deploy("0xC36442b4a4522E871399CD717aBDD847Ab11FE88",rentalPlatform.address,account.address);
+        await rentalEscrow.setAutomatedRentalPlatform(rentalPlatform.address);
+        await rentalPlatform.setRentalEscrow(rentalEscrow.address);
+        router = await Router.deploy(rentPoolFactory.address,WETH.address,greekCache.address, blackScholes.address, "0x1F98431c8aD98523631AE4a59f267346ea31F984", rentalPlatform.address);
         console.log("Router contract deployed to:", router.address);
+
         
     });
 
