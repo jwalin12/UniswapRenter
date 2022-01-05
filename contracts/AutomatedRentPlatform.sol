@@ -5,6 +5,7 @@ import "./interfaces/IRentPlatform.sol";
 import "./interfaces/IAutomatedRentalEscrow.sol";
 import "./interfaces/IRentPlatform.sol";
 import '@uniswap/v3-periphery/contracts/interfaces/INonfungiblePositionManager.sol';
+import "hardhat/console.sol";
 
 
     
@@ -31,19 +32,19 @@ contract AutomatedRentPlatform is IRentPlatform  {
             _owner = newOwner;
         }
 
-        function createNewRental(IRentPlatform.BuyRentalParams memory params, address uniswapPoolAddr, address _renter) external override returns (uint256,
-            uint256) {
-                
+        function createNewRental(IRentPlatform.BuyRentalParams memory params, address uniswapPoolAddr, address _renter) external override returns (uint256 tokenId,
+            uint256 amount0, uint256 amount1) {
+            console.log("creating new rental...");
             require(_rentalEscrow != address(0), "RENTAL ESCROW NOT SET");
-            uint256 tokenId = IAutomatedRentalEscrow(_rentalEscrow).getOldPositions(uniswapPoolAddr, params.tickUpper, params.tickLower);
-            uint256 amount0;
-            uint256 amount1;
+            console.log("checking for old postions...");
+            tokenId = IAutomatedRentalEscrow(_rentalEscrow).getOldPositions(uniswapPoolAddr, params.tickUpper, params.tickLower);
             if (tokenId != 0) {
                 (amount0, amount1) = IAutomatedRentalEscrow(_rentalEscrow).reuseOldPosition(tokenId, uniswapPoolAddr, params);
             }
 
             else {
-                INonfungiblePositionManager posManager = IAutomatedRentalEscrow(_rentalEscrow).getUniswapPositionManager();
+                console.log("minting new pos...");
+                INonfungiblePositionManager posManager = INonfungiblePositionManager(IAutomatedRentalEscrow(_rentalEscrow).getUniswapPositionManager());
                 (tokenId, , amount0, amount1) = posManager.mint(
                 INonfungiblePositionManager.MintParams({
                 token0: params.token0,
@@ -62,7 +63,6 @@ contract AutomatedRentPlatform is IRentPlatform  {
 
             }
            IAutomatedRentalEscrow(_rentalEscrow).handleNewRental(tokenId, params,uniswapPoolAddr, _renter);
-           return (amount0, amount1);
     }
 
     function endRental(uint256 tokenId) external override { 

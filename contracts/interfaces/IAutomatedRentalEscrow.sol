@@ -8,7 +8,7 @@ import '@uniswap/v3-periphery/contracts/interfaces/INonfungiblePositionManager.s
 interface IAutomatedRentalEscrow {
 
 
-    function getUniswapPositionManager() external returns (INonfungiblePositionManager UniswapNonFungiblePositionManager);
+    function getUniswapPositionManager() external returns (address);
     function getOldPositions(address uniswapPoolAddr, int24 tickUpper, int24 tickLower) external returns (uint256 tokenId) ;
     function handleNewRental(uint256 tokenId, IRentPlatform.BuyRentalParams memory params, address uniswapPoolAddr, address _renter) external;
     function handleExpiredRental(uint256 tokenId) external;

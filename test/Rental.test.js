@@ -1,27 +1,37 @@
 const { expect } = require("chai");
 const { ethers } = require("hardhat");
+const factoryABI = require("../data/abi/@uniswap/v3-core/contracts/interfaces/IUniswapV3Factory.sol/IUniswapV3Factory.json");
 const rentPoolABI = require("../data/abi/contracts/RentPool.sol/RentPool.json");
 const IUniswapV3PoolABI = require("../data/abi/@uniswap/v3-core/contracts/interfaces/IUniswapV3Pool.sol/IUniswapV3Pool.json");
-const { smartOrderRouter } = require('@uniswap/smart-order-router');
-const { uniswapSDK } = require('@uniswap/sdk-core');
+// let {abi} = require("@uniswap/v3-periphery/artifacts/contracts/lens/Quoter.sol/Quoter.json");
+const wethABI = require("../data/abi/contracts/WETH9.sol/WETH9.json");
+const { AlphaRouter, SWAP_ROUTER_ADDRESS } = require('@uniswap/smart-order-router');
+const  { Token, CurrencyAmount, Percent, MaxUint256, TradeType, Fraction }= require('@uniswap/sdk-core');
+const { Pool, Route, Trade, SwapRouter, nearestUsableTick, TickMath, TICK_SPACINGS, FACTORY_ADDRESS } = require("@uniswap/v3-sdk");
+const { getPoolState } = require("../utils/testing/pool.ts");
+const { abi } = require("@uniswap/v3-periphery/artifacts/contracts/SwapRouter.sol/SwapRouter.json");
+const JSBI = require("jsbi");
 const PRECISE_UNIT = 1e18;
+const swapABI =abi;
+// const V3_SWAP_ROUTER_ADDRESS = '0x68b3465833fb72A70ecDF485E0e4C7bD8665Fc45';
+// const QuoterABI = abi;
+let router;
+let rentPoolFactory;
+let greekCache;
+let account
+let provider;
 
-const V3_SWAP_ROUTER_ADDRESS = '0x68b3465833fb72A70ecDF485E0e4C7bD8665Fc45';
-const AlphaRouter = smartOrderRouter.AlphaRouter;
-const Token = uniswapSDK.Token;
-const CurrencyAmount = uniswapSDK.CurrencyAmount;
+before(async () => {
+    
+    provider = await new ethers.providers.Web3Provider(network.provider);
+    [account] = await ethers.getSigners();
+  });
 
 
 
-describe("Router", async () => {
-    let router;
-    let rentPoolFactory;
-    let WETH;
-    provider = new ethers.providers.Web3Provider(network.provider);
-
-
+describe("Router", () => {
+    
     it("router should deploy", async () => {
-        [account] = await ethers.getSigners();
         FeeMath = await ethers.getContractFactory("FeeMath");
         feeMath = await FeeMath.deploy();
         Factory = await ethers.getContractFactory("RentPoolFactory");
@@ -29,21 +39,21 @@ describe("Router", async () => {
         BlackScholes = await ethers.getContractFactory("BlackScholes");
         blackScholes = await BlackScholes.deploy();
         GreekCache = await ethers.getContractFactory("OptionGreekCache");
-        greekCache = await GreekCache.deploy(account.address, BigInt(.01*PRECISE_UNIT), "0x8ad599c3a0ff1de082011efddc58f1908eb6e6d8", BigInt(.17*PRECISE_UNIT));
+        greekCache = await GreekCache.deploy(account.address, BigInt(.1*PRECISE_UNIT), "0x8ad599c3a0ff1de082011efddc58f1908eb6e6d8", BigInt(.17*PRECISE_UNIT));
         Router = await ethers.getContractFactory("CaravanRentRouter01", {
             libraries: {
                 FeeMath: feeMath.address,
             },
         });
-        WETHFactory = await ethers.getContractFactory("WETH");
-        WETH = await WETHFactory.deploy();
+        ETHDAISwapper = await ethers.getContractFactory("SwapExamples");
+        swapper = await ETHDAISwapper.deploy(SWAP_ROUTER_ADDRESS);
         RentalPlatform = await ethers.getContractFactory("AutomatedRentPlatform");
         rentalPlatform = await RentalPlatform.deploy(account.address);
         RentalEscrow = await ethers.getContractFactory("AutomatedRentalEscrow");
         rentalEscrow = await RentalEscrow.deploy("0xC36442b4a4522E871399CD717aBDD847Ab11FE88",rentalPlatform.address,account.address);
         await rentalEscrow.setAutomatedRentalPlatform(rentalPlatform.address);
         await rentalPlatform.setRentalEscrow(rentalEscrow.address);
-        router = await Router.deploy(rentPoolFactory.address,WETH.address,greekCache.address, blackScholes.address, "0x1F98431c8aD98523631AE4a59f267346ea31F984", rentalPlatform.address);
+        router = await Router.deploy(rentPoolFactory.address,"0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2",greekCache.address, blackScholes.address, rentalPlatform.address, FACTORY_ADDRESS);
         console.log("Router contract deployed to:", router.address);
 
     });
@@ -51,74 +61,62 @@ describe("Router", async () => {
 
     it("should add liquidity to both pools", async () => {
         // console.log(await provider.getBalance(account.address));
-        // const poolAddress = "0x8ad599c3a0ff1de082011efddc58f1908eb6e6d8";
-        daiAddr = "0x6b175474e89094c44da98b954eedeac495271d0f";
-        WethAddr = "0xc02aaa39b223fe8d0a0e5c4f27ead9083c756cc2" ;
-        const DAI = new Token(1, daiAddr, 18, "DAI", "Dai Coin");
-        const router = new AlphaRouter({ chainId: 1, provider: provider });
+        const poolAddress = "0xc2e9f25be6257c210d7adf0d4cd6e3e881ba25f8";
+        daiAddr = "0x6B175474E89094C44Da98b954EedeAC495271d0F";
+        WethAddr = "0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2" ;
+
+        WethContract = await new ethers.Contract(WethAddr, wethABI, provider);
+        WethContract.connect(account).deposit({value: 1500});
+        console.log(await WethContract.connect(account).approve(SWAP_ROUTER_ADDRESS, 1500));
 
 
-        const WETH = new Token(1, WethAddr, 18, "WETH", "Wrapped Ether");
-        wethAmount = CurrencyAmount.fromRawAmount(WETH, JSBI.BigInt(1))
-        const route = await router.route( {
-            amountIn: wethAmount,
-            tokenOut: DAI,
-            tradeType: TradeType.EXACT_IN,
-            swapConfig: {
-              recipient: account.address,
-              slippage: new Percent(5, 100),
-              deadline: 100
-            },
+        const poolContract = await new ethers.Contract(
+            poolAddress,
+            IUniswapV3PoolABI,
+            provider
+            );
+
+        blockNumber = await provider.getBlockNumber();
+        block = await provider.getBlock(blockNumber);
+        timestamp = block.timestamp;
+        const deadline = timestamp + 864000
+
+        greekCache.connect(account).setPoolAddressToVol(poolAddress, 1);
+
+        const swapRouter = await new ethers.Contract(SWAP_ROUTER_ADDRESS, swapABI, provider);
+        ExactInputSingleParams = {
+        tokenIn: WethAddr,
+        tokenOut: daiAddr,
+        fee: ethers.BigNumber.from(3000),
+        recipient: account.address,
+        deadline: deadline,
+        amountIn: ethers.BigNumber.from(1500),
+        amountOutMinimum: 0,
+        sqrtPriceLimitX96: 0,
+    };
+    console.log(ExactInputSingleParams);
+        await swapRouter.connect(account).exactInputSingle(ExactInputSingleParams);
+        rentalParams = {
+        tickUpper: TickMath.MAX_TICK,
+        tickLower: TickMath.MIN_TICK,
+        fee: 3000,
+        duration: 10000,
+        priceMax: 10000000000000,
+        token0: daiAddr,
+        token1: WethAddr,
+        amount0Desired: 100,
+        amount1Desired: 100,
+        amount0Min:0,
+        amount1Min: 0,
+        deadline: deadline +1000
         }
+        console.log(TickMath.MIN_TICK);
+        factory = await new ethers.Contract(FACTORY_ADDRESS, factoryABI , provider);
+        console.log("FROM ETHERS",await factory.getPool(daiAddr, WethAddr, 3000));
 
-          );
-          const transaction = {
-            data: route.methodParameters.calldata,
-            to: V3_SWAP_ROUTER_ADDRESS,
-            value: BigNumber.from(route.methodParameters.value),
-            from: MY_ADDRESS,
-            gasPrice: BigNumber.from(route.gasPriceWei),
-          };
+        await router.connect(account).buyRental(rentalParams);
+    
 
-        await provider.sendTransaction(transaction);
-          
-
-        // const poolContract = new ethers.Contract(
-        //     poolAddress,
-        //     IUniswapV3PoolABI,
-        //     provider
-        //     );
-        // const quoterAddress = "0xb27308f9F90D607463bb33eA1BeBb41C27CE5AB6";
-        // const quoterContract = new ethers.Contract(quoterAddress, QuoterABI, provider);
-        // const amountIn = 1500;
-        // const quotedAmountOut = await quoterContract.callStatic.quoteExactInputSingle(
-        //     daiAddr,
-        //     WethAddr,
-        //     0.05,
-        //     amountIn.toString(),
-        //     0
-        //   );
-        //   state = await getPoolState(poolContract);
-
-        //   const WETHDAIPool = new Pool(
-        //     WETH,
-        //     DAI,
-        //     0.05,
-        //     state.sqrtPriceX96.toString(), //note the description discrepancy - sqrtPriceX96 and sqrtRatioX96 are interchangable values
-        //     state.liquidity.toString(),
-        //     state.tick
-        //   );
-
-        //   const swapRoute = new Route([WETHDAIPool], WETH, DAI);
-        //   const uncheckedTrade = await Trade.createUncheckedTrade({
-        //     route: swapRoute,
-        //     inputAmount: CurrencyAmount.fromRawAmount(WETH, amountIn.toString()),
-        //     outputAmount: CurrencyAmount.fromRawAmount(
-        //       DAI,
-        //       quotedAmountOut.toString()
-        //     ),
-        //     tradeType: TradeType.EXACT_INPUT,
-        //   });
 
 
 

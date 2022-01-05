@@ -6,6 +6,7 @@ pragma experimental ABIEncoderV2;
 import "./synthetix/SignedSafeDecimalMath.sol";
 import "./synthetix/SafeDecimalMath.sol";
 import "./interfaces/IBlackScholes.sol";
+import "hardhat/console.sol";
 
 /**
  * @title BlackScholes
@@ -339,7 +340,6 @@ contract BlackScholes is IBlackScholes {
   ) external pure override returns (IBlackScholes.PricesDeltaStdVega memory) {
     uint tAnnualised = annualise(timeToExpirySec);
     uint spotPrecise = spotDecimal.decimalToPreciseDecimal();
-
     (int d1, int d2) =
       d1d2(
         tAnnualised,

@@ -11,7 +11,6 @@ interface IRentPlatform {
         uint256 priceMax;
         address token0;
         address token1;
-        uint24 uniswapPoolFee;
         uint256 amount0Desired;
         uint256 amount1Desired;
         uint256 amount0Min;
@@ -28,7 +27,8 @@ interface IRentPlatform {
     }
 
 
-    function createNewRental(IRentPlatform.BuyRentalParams memory params, address uniswapPoolAddr, address _renter) external returns (uint256, uint256);
+    function createNewRental(IRentPlatform.BuyRentalParams memory params, address uniswapPoolAddr, address _renter) external returns (uint256 tokenId,
+            uint256 amount0, uint256 amount1);
 
     function endRental(uint256 tokenId) external;
 

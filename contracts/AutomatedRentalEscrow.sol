@@ -5,6 +5,7 @@ pragma abicoder v2;
 import "./interfaces/IRentPlatform.sol";
 import "./interfaces/IAutomatedRentalEscrow.sol";
 import '@uniswap/v3-periphery/contracts/interfaces/INonfungiblePositionManager.sol';
+import "hardhat/console.sol";
 
 //TODO: make so only router interacts with external contract functions
 
@@ -24,12 +25,14 @@ contract AutomatedRentalEscrow is IAutomatedRentalEscrow {
 
     constructor(address uniswapNFTPositionManagerAddress, address automatedRentalPlatform, address  owner) { 
         UniswapNonFungiblePositionManager = INonfungiblePositionManager(uniswapNFTPositionManagerAddress);
+        console.log("POS MANAGER at init", address(UniswapNonFungiblePositionManager));
         _automatedRentalPlatform = automatedRentalPlatform;
         _owner = owner;
     
     }
-    function getUniswapPositionManager() external override returns (INonfungiblePositionManager UniswapNonFungiblePositionManager) {
-        return UniswapNonFungiblePositionManager;
+    function getUniswapPositionManager() external override returns (address) {
+        console.log("POS MANAGER at get",address(UniswapNonFungiblePositionManager));
+        return address(UniswapNonFungiblePositionManager);
     }
     function getOldPositions(address uniswapPoolAddr, int24 tickUpper, int24 tickLower) external override returns (uint256 tokenId) {
         tokenId = oldPositions[uniswapPoolAddr][tickUpper][tickLower];

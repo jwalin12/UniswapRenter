@@ -77,7 +77,7 @@ contract CaravanRentRouter01 is IRentRouter01 {
     function test(int24 tickUpper, int24 tickLower, uint256 durationInSeconds, address poolAddr, uint256 amountToken0) public view returns (PriceInfo memory) {
         PriceInfo memory price;
         price.uniswapPool = IUniswapV3Pool(poolAddr);
-        int24 meanTick = OracleLibrary.consult(poolAddr, 60);
+        (int24 meanTick, ) = OracleLibrary.consult(poolAddr, 60);
         price.meanTick = meanTick;
         price.token0Decimals = 10**IRentERC20(price.uniswapPool.token0()).decimals();
         price.token1Decimals = 10**IRentERC20(price.uniswapPool.token1()).decimals();
@@ -128,9 +128,16 @@ contract CaravanRentRouter01 is IRentRouter01 {
         //instantiate stuff
         PriceInfo memory price;
         price.uniswapPool = IUniswapV3Pool(poolAddr);
+        if (tickLower <= TickMath.MIN_TICK) {
+            console.log(tickLower == 0);
+            tickLower = 1;
+        }
+        if (tickUpper >= TickMath.MAX_TICK) {
+            tickUpper = TickMath.MAX_TICK;
+        }
 
         //get price from oracle and get each token's decimals
-        int24 meanTick = OracleLibrary.consult(poolAddr, 60);
+        (int24 meanTick, ) = OracleLibrary.consult(poolAddr, 60);
         price.meanTick = meanTick;
         price.token0Decimals = 10**IRentERC20(price.uniswapPool.token0()).decimals();
         price.token1Decimals = 10**IRentERC20(price.uniswapPool.token1()).decimals();
@@ -139,8 +146,11 @@ contract CaravanRentRouter01 is IRentRouter01 {
         //calculate price of upper and lower ticks and their mean
         price.tokenAPrice = OracleLibrary.getQuoteAtTick(meanTick, uint128(price.token0Decimals), price.uniswapPool.token0(), price.uniswapPool.token1()); 
         price.tokenAPrice = FullMath.mulDiv(PRECISE_UNIT, price.tokenAPrice, price.token1Decimals);
+        console.log(price.tokenAPrice);
         price.ratioLower = OracleLibrary.getQuoteAtTick(tickLower, uint128(PRECISE_UNIT), price.uniswapPool.token0(), price.uniswapPool.token1()); 
+        console.log(price.ratioLower);
         price.ratioUpper = OracleLibrary.getQuoteAtTick(tickUpper, uint128(PRECISE_UNIT), price.uniswapPool.token0(), price.uniswapPool.token1());
+        console.log(price.ratioUpper);
         price.ratioMid = (price.ratioLower >> 1) + (price.ratioUpper >> 1) + (price.ratioLower & price.ratioUpper & 1);
         
         //option price is denominated in token1 and is scaled by amount of token0
@@ -177,17 +187,21 @@ contract CaravanRentRouter01 is IRentRouter01 {
         //check if enough liquidity is in the pool
         IRentPool pool0 = IRentPool(IRentPoolFactory(factory).getPool(params.token0));
         IRentPool pool1 = IRentPool(IRentPoolFactory(factory).getPool(params.token1));
+
         //check if price is right (call get price) and compare to slippage tolerance
         //create rental on existing rent platform
+        console.log("getting pool...");
         address poolAddr = uniswapV3Factory.getPool(params.token0, params.token1, params.fee);
         require(poolAddr != address(0), "UNISWAP POOL DOES NOT EXIST");
+        console.log("getting price...");
         uint256 price = getRentalPrice(params.tickUpper, params.tickLower, params.duration, poolAddr, params.amount1Desired);
         require(price <= params.priceMax, "RENTAL PRICE TOO HIGH");
         require(msg.value >= price, "INSUFFICIENT FUNDS");
-        if (msg.value > price) TransferHelper.safeTransferETH(msg.sender, msg.value - price);
-        (bool success, bytes memory result) = address(rentPlatform).delegatecall(abi.encodeWithSignature("createNewRental(IRentPlatform.BuyRentalParams memory params, address uniswapPoolAddr, address _renter)",params, poolAddr ,msg.sender));
+    //    (uint256 tokenId, uint256 amount0, uint256 amount1) = rentPlatform.createNewRental(params, poolAddr, msg.sender);
+        (bool success, bytes memory result) = address(rentPlatform).delegatecall(abi.encodeWithSignature("createNewRental(IRentPlatform.BuyRentalParams memory params, address uniswapPoolAddr, address _renter)",params, poolAddr, msg.sender));
         require(success, "FAILED TO CREATE RENTAL");
-        (uint256 amount0, uint256 amount1) = abi.decode(result, (uint256, uint256));
+        // (uint256 tokenId, uint256 amount0, uint256 amount1) = abi.decode(result, (uint256, uint256, uint256));
+        console.log("CREATED RENTAL",tokenId);
 
         (uint token0Fee, uint token1Fee) = FeeMath.calculateFeeSplit(pool0, pool1, amount0, amount1, price);
         TransferHelper.safeTransferETH(address(pool0), token0Fee);
