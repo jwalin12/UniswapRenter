@@ -4,6 +4,7 @@ pragma abicoder v2;
 import "./interfaces/IRentPlatform.sol";
 import "./interfaces/IAutomatedRentalEscrow.sol";
 import "./interfaces/IRentPlatform.sol";
+import "@uniswap/lib/contracts/libraries/TransferHelper.sol";
 import '@uniswap/v3-periphery/contracts/interfaces/INonfungiblePositionManager.sol';
 import "hardhat/console.sol";
 
@@ -45,8 +46,10 @@ contract AutomatedRentPlatform is IRentPlatform  {
             else {
                 console.log("minting new pos...");
                 INonfungiblePositionManager posManager = INonfungiblePositionManager(IAutomatedRentalEscrow(_rentalEscrow).getUniswapPositionManager());
-                (tokenId, , amount0, amount1) = posManager.mint(
-                INonfungiblePositionManager.MintParams({
+                // TransferHelper.safeApprove(params.token0, address(posManager),  params.amount0Desired);
+                // TransferHelper.safeApprove(params.token1, address(posManager),  params.amount1Desired);
+                // TransferHelper.safeApprove(token, to, value);
+                (bool success, bytes memory result) = address(posManager).delegatecall(abi.encodeWithSignature("mint(INonfungiblePositionManager.MintParams calldata params)",INonfungiblePositionManager.MintParams({
                 token0: params.token0,
                 token1: params.token1,
                 fee: params.fee,
@@ -58,8 +61,27 @@ contract AutomatedRentPlatform is IRentPlatform  {
                 amount0Min: params.amount0Min,
                 amount1Min: params.amount1Min,
                 deadline: params.deadline
-                })
-                );
+                })));
+                console.log("minted pos", success);
+
+                require(success, "FAILED TO MINT NEW POS");
+                (tokenId, amount0, amount1) = abi.decode(result, (uint256, uint256, uint256));
+
+                // (tokenId, , amount0, amount1) = posManager.mint(
+                // INonfungiblePositionManager.MintParams({
+                // token0: params.token0,
+                // token1: params.token1,
+                // fee: params.fee,
+                // recipient: _rentalEscrow,
+                // tickLower: params.tickLower,
+                // tickUpper: params.tickUpper,
+                // amount0Desired: params.amount0Desired,
+                // amount1Desired: params.amount1Desired,
+                // amount0Min: params.amount0Min,
+                // amount1Min: params.amount1Min,
+                // deadline: params.deadline
+                // })
+                // );
 
             }
            IAutomatedRentalEscrow(_rentalEscrow).handleNewRental(tokenId, params,uniswapPoolAddr, _renter);

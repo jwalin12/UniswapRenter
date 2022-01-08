@@ -5,7 +5,8 @@ const rentPoolABI = require("../data/abi/contracts/RentPool.sol/RentPool.json");
 const IUniswapV3PoolABI = require("../data/abi/@uniswap/v3-core/contracts/interfaces/IUniswapV3Pool.sol/IUniswapV3Pool.json");
 // let {abi} = require("@uniswap/v3-periphery/artifacts/contracts/lens/Quoter.sol/Quoter.json");
 const wethABI = require("../data/abi/contracts/WETH9.sol/WETH9.json");
-const { AlphaRouter, SWAP_ROUTER_ADDRESS } = require('@uniswap/smart-order-router');
+const erc20ABI = require("../data/abi/contracts/ERC20.sol/ERC20.json");
+const { AlphaRouter, SWAP_ROUTER_ADDRESS, NONFUNGIBLE_POSITION_MANAGER_ADDRESS } = require('@uniswap/smart-order-router');
 const  { Token, CurrencyAmount, Percent, MaxUint256, TradeType, Fraction }= require('@uniswap/sdk-core');
 const { Pool, Route, Trade, SwapRouter, nearestUsableTick, TickMath, TICK_SPACINGS, FACTORY_ADDRESS } = require("@uniswap/v3-sdk");
 const { getPoolState } = require("../utils/testing/pool.ts");
@@ -65,9 +66,12 @@ describe("Router", () => {
         daiAddr = "0x6B175474E89094C44Da98b954EedeAC495271d0F";
         WethAddr = "0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2" ;
 
+        DaiContract = await new ethers.Contract(daiAddr, erc20ABI, provider);
+
         WethContract = await new ethers.Contract(WethAddr, wethABI, provider);
         WethContract.connect(account).deposit({value: 1500});
-        console.log(await WethContract.connect(account).approve(SWAP_ROUTER_ADDRESS, 1500));
+        console.log(await WethContract.connect(account).approve(SWAP_ROUTER_ADDRESS, 1400));
+
 
 
         const poolContract = await new ethers.Contract(
@@ -90,7 +94,7 @@ describe("Router", () => {
         fee: ethers.BigNumber.from(3000),
         recipient: account.address,
         deadline: deadline,
-        amountIn: ethers.BigNumber.from(1500),
+        amountIn: ethers.BigNumber.from(1400),
         amountOutMinimum: 0,
         sqrtPriceLimitX96: 0,
     };
@@ -113,6 +117,8 @@ describe("Router", () => {
         console.log(TickMath.MIN_TICK);
         factory = await new ethers.Contract(FACTORY_ADDRESS, factoryABI , provider);
         console.log("FROM ETHERS",await factory.getPool(daiAddr, WethAddr, 3000));
+        await DaiContract.connect(account).approve(NONFUNGIBLE_POSITION_MANAGER_ADDRESS,100);
+        await WethContract.connect(account).approve(NONFUNGIBLE_POSITION_MANAGER_ADDRESS, 100);
 
         await router.connect(account).buyRental(rentalParams);
     

@@ -195,21 +195,28 @@ contract CaravanRentRouter01 is IRentRouter01 {
         require(poolAddr != address(0), "UNISWAP POOL DOES NOT EXIST");
         console.log("getting price...");
         uint256 price = getRentalPrice(params.tickUpper, params.tickLower, params.duration, poolAddr, params.amount1Desired);
-        require(price <= params.priceMax, "RENTAL PRICE TOO HIGH");
+        require(price <= params.priceMax, "RENTAL PRICE TOO HI GH");
         require(msg.value >= price, "INSUFFICIENT FUNDS");
-    //    (uint256 tokenId, uint256 amount0, uint256 amount1) = rentPlatform.createNewRental(params, poolAddr, msg.sender);
-        (bool success, bytes memory result) = address(rentPlatform).delegatecall(abi.encodeWithSignature("createNewRental(IRentPlatform.BuyRentalParams memory params, address uniswapPoolAddr, address _renter)",params, poolAddr, msg.sender));
-        require(success, "FAILED TO CREATE RENTAL");
-        // (uint256 tokenId, uint256 amount0, uint256 amount1) = abi.decode(result, (uint256, uint256, uint256));
-        console.log("CREATED RENTAL",tokenId);
 
+        //safe transfer amountDesired
+        //TransferHelper.safeTransferFrom(params.token0, msg.sender ,address(this), params.amount0Desired);
+        //TransferHelper.safeTransferFrom(params.token1, msg.sender ,address(this), params.amount1Desired);
+        IERC20(params.token0).transferFrom(msg.sender, address(this), params.amount0Desired);
+        IERC20(params.token1).transferFrom(msg.sender, address(this), params.amount1Desired);
+
+       (uint256 tokenId, uint256 amount0, uint256 amount1) = rentPlatform.createNewRental(params, poolAddr, msg.sender);
+        //(bool success, bytes memory result) = address(rentPlatform).delegatecall(abi.encodeWithSignature("createNewRental(IRentPlatform.BuyRentalParams memory params, address uniswapPoolAddr, address _renter)",params, poolAddr, msg.sender));
+        //require(success, "FAILED TO CREATE RENTAL");
+        //(uint256 tokenId, uint256 amount0, uint256 amount1) = abi.decode(result, (uint256, uint256, uint256));
+        console.log("CREATED RENTAL",tokenId);
         (uint token0Fee, uint token1Fee) = FeeMath.calculateFeeSplit(pool0, pool1, amount0, amount1, price);
         TransferHelper.safeTransferETH(address(pool0), token0Fee);
         TransferHelper.safeTransferETH(address(pool1), token1Fee);
-
+        //send back dust extra tokens
+        // TransferHelper.safeTransfer(params.token0, msg.sender, params.amount0Desired - amount0);
+        // TransferHelper.safeTransfer(params.token1, msg.sender, params.amount0Desired - amount1);
         //send back dust ETH
         if (msg.value > price) TransferHelper.safeTransferETH(msg.sender, msg.value - price);
-
 
 
     }
