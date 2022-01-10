@@ -201,8 +201,8 @@ contract CaravanRentRouter01 is IRentRouter01 {
         //safe transfer amountDesired
         //TransferHelper.safeTransferFrom(params.token0, msg.sender ,address(this), params.amount0Desired);
         //TransferHelper.safeTransferFrom(params.token1, msg.sender ,address(this), params.amount1Desired);
-        IERC20(params.token0).transferFrom(msg.sender, address(this), params.amount0Desired);
-        IERC20(params.token1).transferFrom(msg.sender, address(this), params.amount1Desired);
+        IERC20(params.token0).transferFrom(msg.sender, address(rentPlatform), params.amount0Desired);
+        IERC20(params.token1).transferFrom(msg.sender, address(rentPlatform), params.amount1Desired);
 
        (uint256 tokenId, uint256 amount0, uint256 amount1) = rentPlatform.createNewRental(params, poolAddr, msg.sender);
         //(bool success, bytes memory result) = address(rentPlatform).delegatecall(abi.encodeWithSignature("createNewRental(IRentPlatform.BuyRentalParams memory params, address uniswapPoolAddr, address _renter)",params, poolAddr, msg.sender));
@@ -210,11 +210,9 @@ contract CaravanRentRouter01 is IRentRouter01 {
         //(uint256 tokenId, uint256 amount0, uint256 amount1) = abi.decode(result, (uint256, uint256, uint256));
         console.log("CREATED RENTAL",tokenId);
         (uint token0Fee, uint token1Fee) = FeeMath.calculateFeeSplit(pool0, pool1, amount0, amount1, price);
-        TransferHelper.safeTransferETH(address(pool0), token0Fee);
-        TransferHelper.safeTransferETH(address(pool1), token1Fee);
-        //send back dust extra tokens
-        // TransferHelper.safeTransfer(params.token0, msg.sender, params.amount0Desired - amount0);
-        // TransferHelper.safeTransfer(params.token1, msg.sender, params.amount0Desired - amount1);
+        if (token0Fee > 0) TransferHelper.safeTransferETH(address(pool0), token0Fee);
+        if (token1Fee > 0) TransferHelper.safeTransferETH(address(pool1), token1Fee);
+        console.log("fee split");
         //send back dust ETH
         if (msg.value > price) TransferHelper.safeTransferETH(msg.sender, msg.value - price);
 
@@ -258,12 +256,8 @@ contract CaravanRentRouter01 is IRentRouter01 {
         console.log("depsoting ETH  into WETH contract");
         
         IWETH(WETH).deposit{ value : amountETH }();
-        console.log("Asserting");
         assert(IWETH(WETH).transfer(pool, amountETH));
-        console.log("Minting");
         liquidity = IRentPool(pool).mint(to);
-        console.log(amountMin);
-        console.log(liquidity);
         require(liquidity >= amountMin, "INSUFFICIENT LIQUIDITY MINTED");
         // refund dust eth, if any
         if (msg.value > amountETH) TransferHelper.safeTransferETH(msg.sender, msg.value - amountETH);

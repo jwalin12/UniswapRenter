@@ -3,7 +3,9 @@ pragma solidity = 0.7.6;
 
 import "../interfaces/IRentPoolFactory.sol";
 import "../interfaces/IRentPool.sol";
-import "@openzeppelin/contracts/math/SafeMath.sol";
+import "../synthetix/SafeDecimalMath.sol";
+import '@uniswap/v3-core/contracts/libraries/FullMath.sol';
+import "hardhat/console.sol";
 
 
 
@@ -12,6 +14,7 @@ import "@openzeppelin/contracts/math/SafeMath.sol";
 library FeeMath {
     /// @dev Internally this library uses 27 decimals of precision
   uint private constant PRECISE_UNIT = 1e27;
+  using SafeDecimalMath for uint;
 
 
 
@@ -21,14 +24,28 @@ library FeeMath {
         (uint256 totalAmountToken0, , ) = pool0.getReserves();
         (uint256 totalAmountToken1, , ) = pool1.getReserves();
 
-        uint token1Ratio = (amount1/totalAmountToken1) * 1e27;
-        uint token0Ratio = (amount0/totalAmountToken0) * 1e27;
+
+
+        uint token1Ratio;
+        uint token0Ratio;
+
+        if (totalAmountToken0 == 0) {
+          token0Ratio = PRECISE_UNIT;
+        } else {
+          token0Ratio = FullMath.mulDiv(PRECISE_UNIT, amount0,totalAmountToken0);
+        }
+        if (totalAmountToken1 == 0) {
+          token1Ratio = PRECISE_UNIT;
+        }  else {
+          token1Ratio = FullMath.mulDiv(PRECISE_UNIT, amount1,totalAmountToken1);
+        }
+        console.log("amount0", amount0);
+        console.log("token0Ratio", token0Ratio);
 
         uint denom = token1Ratio + token0Ratio;
-
-        token0Fee = (token0Ratio/denom) * fee;
-        token1Fee = (token1Ratio/denom) * fee;
-
+        require(denom > 0, "EMPTY POSITION");
+        token0Fee = FullMath.mulDiv(token0Ratio, fee, denom);
+        token1Fee = FullMath.mulDiv(token1Ratio, fee, denom);
 
 
 

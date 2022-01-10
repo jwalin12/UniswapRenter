@@ -45,11 +45,11 @@ contract AutomatedRentPlatform is IRentPlatform  {
 
             else {
                 console.log("minting new pos...");
+                console.log(msg.sender);
                 INonfungiblePositionManager posManager = INonfungiblePositionManager(IAutomatedRentalEscrow(_rentalEscrow).getUniswapPositionManager());
-                // TransferHelper.safeApprove(params.token0, address(posManager),  params.amount0Desired);
-                // TransferHelper.safeApprove(params.token1, address(posManager),  params.amount1Desired);
-                // TransferHelper.safeApprove(token, to, value);
-                (bool success, bytes memory result) = address(posManager).delegatecall(abi.encodeWithSignature("mint(INonfungiblePositionManager.MintParams calldata params)",INonfungiblePositionManager.MintParams({
+                TransferHelper.safeApprove(params.token0, address(posManager),  params.amount0Desired);
+                TransferHelper.safeApprove(params.token1, address(posManager),  params.amount1Desired);
+                INonfungiblePositionManager.MintParams memory mintParams = INonfungiblePositionManager.MintParams({
                 token0: params.token0,
                 token1: params.token1,
                 fee: params.fee,
@@ -61,27 +61,15 @@ contract AutomatedRentPlatform is IRentPlatform  {
                 amount0Min: params.amount0Min,
                 amount1Min: params.amount1Min,
                 deadline: params.deadline
-                })));
-                console.log("minted pos", success);
+                });
+                (tokenId, , amount0, amount1) = posManager.mint(mintParams);
+                
+                // TransferHelper.safeApprove(token, to, value);
+                //(bool success, bytes memory result) = address(posManager).delegatecall(abi.encodeWithSignature("mint(MintParams calldata params)", mintParams));
+                //console.log("minted pos", success);
 
-                require(success, "FAILED TO MINT NEW POS");
-                (tokenId, amount0, amount1) = abi.decode(result, (uint256, uint256, uint256));
-
-                // (tokenId, , amount0, amount1) = posManager.mint(
-                // INonfungiblePositionManager.MintParams({
-                // token0: params.token0,
-                // token1: params.token1,
-                // fee: params.fee,
-                // recipient: _rentalEscrow,
-                // tickLower: params.tickLower,
-                // tickUpper: params.tickUpper,
-                // amount0Desired: params.amount0Desired,
-                // amount1Desired: params.amount1Desired,
-                // amount0Min: params.amount0Min,
-                // amount1Min: params.amount1Min,
-                // deadline: params.deadline
-                // })
-                // );
+                //require(success, "FAILED TO MINT NEW POS");
+                //(tokenId, amount0, amount1) = abi.decode(result, (uint256, uint256, uint256));
 
             }
            IAutomatedRentalEscrow(_rentalEscrow).handleNewRental(tokenId, params,uniswapPoolAddr, _renter);
