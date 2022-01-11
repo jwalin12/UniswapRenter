@@ -51,7 +51,10 @@ typechain
 /data/*
 /data/abi/*
 
+
+
 #Hardhat files
+hardhat-dependency-compiler
 cache
 artifacts
 
