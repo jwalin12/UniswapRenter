@@ -127,6 +127,7 @@ contract CaravanRentRouter01 is IRentRouter01 {
     function getRentalPrice(int24 tickUpper, int24 tickLower, uint256 durationInSeconds, address poolAddr, uint256 amountToken0) public view returns (uint256) {
         //instantiate stuff
         PriceInfo memory price;
+        //TODO: fix minTick stuff
         price.uniswapPool = IUniswapV3Pool(poolAddr);
         if (tickLower <= TickMath.MIN_TICK) {
             console.log(tickLower == 0);
@@ -194,7 +195,9 @@ contract CaravanRentRouter01 is IRentRouter01 {
         address poolAddr = uniswapV3Factory.getPool(params.token0, params.token1, params.fee);
         require(poolAddr != address(0), "UNISWAP POOL DOES NOT EXIST");
         console.log("getting price...");
-        uint256 price = getRentalPrice(params.tickUpper, params.tickLower, params.duration, poolAddr, params.amount1Desired);
+        console.log(params.amount0Desired);
+        uint256 price = getRentalPrice(params.tickUpper, params.tickLower, params.duration, poolAddr, params.amount0Desired);
+        require(price > 0, "POSITION TOO SMALL");
         require(price <= params.priceMax, "RENTAL PRICE TOO HI GH");
         require(msg.value >= price, "INSUFFICIENT FUNDS");
 
@@ -209,7 +212,11 @@ contract CaravanRentRouter01 is IRentRouter01 {
         //require(success, "FAILED TO CREATE RENTAL");
         //(uint256 tokenId, uint256 amount0, uint256 amount1) = abi.decode(result, (uint256, uint256, uint256));
         console.log("CREATED RENTAL",tokenId);
+
+
+        
         (uint token0Fee, uint token1Fee) = FeeMath.calculateFeeSplit(pool0, pool1, amount0, amount1, price);
+        console.log("TOKEN0Fee", token0Fee);
         if (token0Fee > 0) TransferHelper.safeTransferETH(address(pool0), token0Fee);
         if (token1Fee > 0) TransferHelper.safeTransferETH(address(pool1), token1Fee);
         console.log("fee split");

@@ -43,6 +43,7 @@ library FeeMath {
         console.log("token0Ratio", token0Ratio);
 
         uint denom = token1Ratio + token0Ratio;
+        console.log("FEE", fee);
         require(denom > 0, "EMPTY POSITION");
         token0Fee = FullMath.mulDiv(token0Ratio, fee, denom);
         token1Fee = FullMath.mulDiv(token1Ratio, fee, denom);

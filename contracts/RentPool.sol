@@ -22,7 +22,7 @@ contract RentPool is IRentPool, RentERC20 {
     address public token;
 
     uint112 private reserve;           // uses single storage slot, accessible via getReserves
-    uint112 private feesAccrued; 
+    uint256 private feesAccrued; 
     uint32  private blockTimestampLast; // uses single storage slot, accessible via getReserves
 
 
@@ -34,15 +34,19 @@ contract RentPool is IRentPool, RentERC20 {
         unlocked = 1;
     }
 
+    receive() external payable {
+        feesAccrued += msg.value;
+    }
 
-    function _getReserves() private view returns (uint112 _reserve, uint112 _feesAccrued, uint32 _blockTimestampLast) {
+
+    function _getReserves() private view returns (uint112 _reserve, uint256 _feesAccrued, uint32 _blockTimestampLast) {
         _reserve = reserve;
         _feesAccrued = feesAccrued;
         _blockTimestampLast = blockTimestampLast;
 
     }
 
-    function getReserves() external override view returns (uint112 _reserve, uint112 _feesAccrued, uint32 _blockTimestampLast) {
+    function getReserves() external override view returns (uint112 _reserve, uint256 _feesAccrued, uint32 _blockTimestampLast) {
         return _getReserves();
     }
 
@@ -104,8 +108,8 @@ contract RentPool is IRentPool, RentERC20 {
 
     // this low-level function should be called from a contract which performs important safety checks
     //before calling this, router must transfer tokens to burn address
-    function burn(address to) external override lock returns (uint amountOfTokens, uint feesAccrued) {
-        (uint112 _reserve, uint112 feesAccrued,) = _getReserves(); // gas savings
+    function burn(address to) external override lock returns (uint amountOfTokens, uint256 feesAccrued) {
+        (uint112 _reserve, uint256 feesAccrued,) = _getReserves(); // gas savings
         address _token = token;                                // gas savings
         uint balance = IERC20(_token).balanceOf(address(this));
         uint liquidity = balanceOf[address(this)];
@@ -126,7 +130,7 @@ contract RentPool is IRentPool, RentERC20 {
 
     // this low-level function should be called from a contract which performs important safety checks
     function withdrawFees (address to) external override returns (uint256 amountOfFees) {
-        (, uint112 feesAccrued,) = _getReserves(); // gas savings
+        (, uint256 feesAccrued,) = _getReserves(); // gas savings
         address _token = token;
         uint liquidity = balanceOf[address(to)];
         amountOfFees = liquidity.mul(feesAccrued)/ totalSupply;

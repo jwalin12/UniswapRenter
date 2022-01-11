@@ -111,8 +111,8 @@ describe("Router", () => {
         await swapRouter.connect(account).exactInputSingle(ExactInputSingleParams);
         await console.log("WETH BAL", WethContract.balanceOf(account.address) > ethers.utils.parseEther("1") );
         rentalParams = {
-        tickUpper: 60,
-        tickLower: 0,
+        tickUpper: 0,
+        tickLower: 60,
         fee: 3000,
         duration: 10000,
         priceMax: 10000000000000,
@@ -125,11 +125,11 @@ describe("Router", () => {
         deadline: deadline + 1000
         }
 
-        PosManager = await new ethers.Contract(NONFUNGIBLE_POSITION_MANAGER_ADDRESS, NFTManagerABI, provider);
-        await DaiContract.connect(account).approve(NONFUNGIBLE_POSITION_MANAGER_ADDRESS,ethers.utils.parseEther("10"));
-        await WethContract.connect(account).approve(NONFUNGIBLE_POSITION_MANAGER_ADDRESS, ethers.utils.parseEther("10"));
-        console.log(await DaiContract.allowance(account.address, NONFUNGIBLE_POSITION_MANAGER_ADDRESS));
-        console.log(await WethContract.allowance(account.address, NONFUNGIBLE_POSITION_MANAGER_ADDRESS));
+        // PosManager = await new ethers.Contract(NONFUNGIBLE_POSITION_MANAGER_ADDRESS, NFTManagerABI, provider);
+        // await DaiContract.connect(account).approve(NONFUNGIBLE_POSITION_MANAGER_ADDRESS,ethers.utils.parseEther("10"));
+        // await WethContract.connect(account).approve(NONFUNGIBLE_POSITION_MANAGER_ADDRESS, ethers.utils.parseEther("10"));
+        // console.log(await DaiContract.allowance(account.address, NONFUNGIBLE_POSITION_MANAGER_ADDRESS));
+        // console.log(await WethContract.allowance(account.address, NONFUNGIBLE_POSITION_MANAGER_ADDRESS));
 
         // console.log(await PosManager.connect(account).mint({
         //     token0: rentalParams.token0,
@@ -169,10 +169,10 @@ describe("Router", () => {
         await rentPoolFactory.createPool(daiAddr);
         await rentPoolFactory.createPool(WethAddr);
 
-        await DaiContract.connect(account).approve(NONFUNGIBLE_POSITION_MANAGER_ADDRESS,ethers.utils.parseEther('200'));
-        await WethContract.connect(account).approve(NONFUNGIBLE_POSITION_MANAGER_ADDRESS, ethers.utils.parseEther('200'));
-        await DaiContract.connect(account).approve(router.address, ethers.utils.parseEther('200'));
-        await WethContract.connect(account).approve(router.address, ethers.utils.parseEther('200'));
+        // await DaiContract.connect(account).approve(NONFUNGIBLE_POSITION_MANAGER_ADDRESS,ethers.utils.parseEther('200'));
+        // await WethContract.connect(account).approve(NONFUNGIBLE_POSITION_MANAGER_ADDRESS, ethers.utils.parseEther('200'));
+        await DaiContract.connect(account).approve(router.address, ethers.utils.parseEther('20'));
+        await WethContract.connect(account).approve(router.address, ethers.utils.parseEther('20'));
         await router.addLiquidityETH(ethers.utils.parseEther('10'), ethers.utils.parseEther('0'), account.address, ethers.BigNumber.from(deadline),{ value: ethers.utils.parseEther('10') });
         console.log("APPROVAL OF DAI", await DaiContract.allowance(account.address, router.address));
         console.log("BAL OF DAI",await DaiContract.balanceOf(account.address) >ethers.utils.parseEther('10') );
@@ -180,6 +180,10 @@ describe("Router", () => {
         console.log("liquidty added");
         await router.connect(account).buyRental(rentalParams, { value: ethers.utils.parseEther('1') });
         console.log("MADE RENTAL W NO ERRORZ");
+        daiPoolAddr = await rentPoolFactory.getPool(daiAddr);
+        daiRentPool = await new ethers.Contract(daiPoolAddr, rentPoolABI, provider);
+        console.log(await daiRentPool.getReserves());
+
     
 
 
