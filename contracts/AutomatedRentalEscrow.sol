@@ -7,14 +7,10 @@ import "./interfaces/IAutomatedRentalEscrow.sol";
 import '@uniswap/v3-periphery/contracts/interfaces/INonfungiblePositionManager.sol';
 import "hardhat/console.sol";
 
-//TODO: make so only router interacts with external contract functions
-
-//
-
-
 contract AutomatedRentalEscrow is IAutomatedRentalEscrow {
 
     mapping(uint256 => IRentPlatform.RentInfo) public tokenIdToRentInfo;
+    
 
     address public _automatedRentalPlatform;
     address public _owner;

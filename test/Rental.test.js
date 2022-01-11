@@ -2,11 +2,9 @@ const { ethers } = require("hardhat");
 const rentPoolABI = require("../data/abi/contracts/RentPool.sol/RentPool.json");
 const wethABI = require("../data/abi/contracts/WETH9.sol/WETH9.json");
 const erc20ABI = require("../data/abi/contracts/ERC20.sol/ERC20.json");
-const v3PoolABI = require("../data/abi/@uniswap/v3-core/contracts/UniswapV3Pool.sol/UniswapV3Pool.json")
-const { SWAP_ROUTER_ADDRESS} = require('@uniswap/smart-order-router');
-const { abi } = require("@uniswap/v3-periphery/artifacts/contracts/SwapRouter.sol/SwapRouter.json");
+const v3PoolABI = require("../data/abi/@uniswap/v3-core/contracts/interfaces/IUniswapV3Pool.sol/IUniswapV3Pool.json")
+const swapABI = require("../data/abi/@uniswap/v3-periphery/contracts/interfaces/ISwapRouter.sol/ISwapRouter.json");
 const PRECISE_UNIT = 1e18;
-const swapABI =abi;
 let router;
 let rentPoolFactory;
 let rentalEscrow;
@@ -16,6 +14,7 @@ let provider;
 
 
 const FACTORY_ADDRESS = "0x1F98431c8aD98523631AE4a59f267346ea31F984";
+const SWAP_ROUTER_ADDRESS = "0xE592427A0AEce92De3Edee1F18E0157C05861564";
 
 before(async () => {
     

@@ -57,7 +57,6 @@
   "dependencies": {
     "@openzeppelin/contracts": "^3.4.2",
     "@uniswap/lib": "^4.0.1-alpha",
-    "@uniswap/smart-order-router": "^2.5.7",
     "@uniswap/v2-sdk": "^3.0.1",
     "@uniswap/v3-core": "^1.0.0",
     "hardhat-abi-exporter": "^2.3.0",
