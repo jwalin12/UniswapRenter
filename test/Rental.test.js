@@ -54,8 +54,6 @@ describe("Router", () => {
         RentalPlatform = await ethers.getContractFactory("AutomatedRentPlatform");
         rentalPlatform = await RentalPlatform.deploy(account.address);
         RentalEscrow = await ethers.getContractFactory("AutomatedRentalEscrow");
-        // UniswapV3PoolFactory = await ethers.getContractFactory("UniswapV3Factory");
-        // uniswapV3PoolFactory = await UniswapV3PoolFactory.connect(account).deploy();
         rentalEscrow = await RentalEscrow.deploy("0xC36442b4a4522E871399CD717aBDD847Ab11FE88",rentalPlatform.address,account.address);
         await rentalEscrow.setAutomatedRentalPlatform(rentalPlatform.address);
         await rentalPlatform.setRentalEscrow(rentalEscrow.address);
@@ -186,7 +184,6 @@ describe("Router", () => {
     });
 
     it("should create a rental", async () => {
-        rentalEscrow.get
 
     });
 
