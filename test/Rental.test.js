@@ -1,30 +1,19 @@
-const { expect } = require("chai");
 const { ethers } = require("hardhat");
-const factoryABI = require("../data/abi/@uniswap/v3-core/contracts/interfaces/IUniswapV3Factory.sol/IUniswapV3Factory.json");
 const rentPoolABI = require("../data/abi/contracts/RentPool.sol/RentPool.json");
-const IUniswapV3PoolABI = require("../data/abi/@uniswap/v3-core/contracts/interfaces/IUniswapV3Pool.sol/IUniswapV3Pool.json");
-// let {abi} = require("@uniswap/v3-periphery/artifacts/contracts/lens/Quoter.sol/Quoter.json");
 const wethABI = require("../data/abi/contracts/WETH9.sol/WETH9.json");
 const erc20ABI = require("../data/abi/contracts/ERC20.sol/ERC20.json");
 const v3PoolABI = require("../data/abi/@uniswap/v3-core/contracts/UniswapV3Pool.sol/UniswapV3Pool.json")
-const NFTManagerABI = require("../data/abi/@uniswap/v3-periphery/contracts/interfaces/INonfungiblePositionManager.sol/INonfungiblePositionManager.json");
-const { AlphaRouter, SWAP_ROUTER_ADDRESS, NONFUNGIBLE_POSITION_MANAGER_ADDRESS } = require('@uniswap/smart-order-router');
-const  { Token, CurrencyAmount, Percent, MaxUint256, TradeType, Fraction,  }= require('@uniswap/sdk-core');
-const { Pool, Route, Trade, SwapRouter, nearestUsableTick, TickMath, TICK_SPACINGS, FACTORY_ADDRESS, maxLiquidityForAmounts, LiquidityMath, isSorted } = require("@uniswap/v3-sdk");
-const { getPoolState } = require("../utils/testing/pool.ts");
+const { SWAP_ROUTER_ADDRESS} = require('@uniswap/smart-order-router');
+const { FACTORY_ADDRESS} = require("@uniswap/v3-sdk");
 const { abi } = require("@uniswap/v3-periphery/artifacts/contracts/SwapRouter.sol/SwapRouter.json");
-const JSBI = require("jsbi");
 const PRECISE_UNIT = 1e18;
 const swapABI =abi;
-// const V3_SWAP_ROUTER_ADDRESS = '0x68b3465833fb72A70ecDF485E0e4C7bD8665Fc45';
-// const QuoterABI = abi;
 let router;
 let rentPoolFactory;
 let rentalEscrow;
 let greekCache;
 let account
 let provider;
-let uniswapV3PoolFactory;
 
 before(async () => {
     
@@ -122,52 +111,9 @@ describe("Router", () => {
         deadline: deadline + 1000
         }
 
-        // PosManager = await new ethers.Contract(NONFUNGIBLE_POSITION_MANAGER_ADDRESS, NFTManagerABI, provider);
-        // await DaiContract.connect(account).approve(NONFUNGIBLE_POSITION_MANAGER_ADDRESS,ethers.utils.parseEther("10"));
-        // await WethContract.connect(account).approve(NONFUNGIBLE_POSITION_MANAGER_ADDRESS, ethers.utils.parseEther("10"));
-        // console.log(await DaiContract.allowance(account.address, NONFUNGIBLE_POSITION_MANAGER_ADDRESS));
-        // console.log(await WethContract.allowance(account.address, NONFUNGIBLE_POSITION_MANAGER_ADDRESS));
-
-        // console.log(await PosManager.connect(account).mint({
-        //     token0: rentalParams.token0,
-        //     token1: rentalParams.token1,
-        //     fee: rentalParams.fee,
-        //     recipient: account.address,
-        //     tickLower: rentalParams.tickLower,
-        //     tickUpper: rentalParams.tickUpper,
-        //     amount0Desired: rentalParams.amount0Desired,
-        //     amount1Desired: rentalParams.amount1Desired,
-        //     amount0Min: rentalParams.amount0Min,
-        //     amount1Min: rentalParams.amount1Min,
-        //     deadline: rentalParams.deadline +10000
-        //     }));
-
-        //check that liquidity amount added is not 0
-
-        // poolSlot0 = await poolContract.slot0();
-        // console.log("CURR POOL TICK", poolSlot0.tick);
-        // sqrtRatioA = await TickMath.getSqrtRatioAtTick(rentalParams.tickLower);
-        // sqrtRatioB = await TickMath.getSqrtRatioAtTick(rentalParams.tickUpper);
-        // console.log("sqrt x96", poolSlot0.sqrtPriceX96);
-        // const maxLiquidity = await maxLiquidityForAmounts(poolSlot0.sqrtPriceX96, sqrtRatioA, sqrtRatioB, rentalParams.amount0Desired, rentalParams.amount1Desired, true );
-        // console.log("MAX LIQUIDITY", maxLiquidity);
-        // await uniswapV3PoolFactory.connect(account).createPool(WethAddr,daiAddr, 2000);
-        // poolAddr = await uniswapV3PoolFactory.getPool(WethAddr, daiAddr, 2000);
-        // customPoolContract = await new ethers.Contract(poolAddr, v3PoolABI, provider);
-        // await customPoolContract.connect(account).initialize(ethers.BigNumber.from("1415507735409115466500818218"));
-        // await WethContract.connect(account).approve(poolAddr ,ethers.utils.parseEther("1"));
- 
-    //    await customPoolContract.connect(account).mint(account.address, 0, 60, ethers.BigNumber.from(maxLiquidity.toString()) ,[]);
-
-        // factory = await new ethers.Contract(FACTORY_ADDRESS, factoryABI , provider);
-        // console.log("FROM ETHERS",await factory.getPool(daiAddr, WethAddr, 3000));
-
-
+       
         await rentPoolFactory.createPool(daiAddr);
         await rentPoolFactory.createPool(WethAddr);
-
-        // await DaiContract.connect(account).approve(NONFUNGIBLE_POSITION_MANAGER_ADDRESS,ethers.utils.parseEther('200'));
-        // await WethContract.connect(account).approve(NONFUNGIBLE_POSITION_MANAGER_ADDRESS, ethers.utils.parseEther('200'));
         await DaiContract.connect(account).approve(router.address, ethers.utils.parseEther('20'));
         await WethContract.connect(account).approve(router.address, ethers.utils.parseEther('20'));
         await router.addLiquidityETH(ethers.utils.parseEther('10'), ethers.utils.parseEther('0'), account.address, ethers.BigNumber.from(deadline),{ value: ethers.utils.parseEther('10') });
