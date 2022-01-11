@@ -3,6 +3,11 @@ pragma solidity >=0.5.0;
 
 interface IRentRouter01 {
 
+    function setFeeTo(address to) external;
+    function setFeeToSetter(address to) external;
+    function setFee(uint256 newFee) external;
+
+
 
     function addLiquidity(
         address token,
@@ -48,7 +53,7 @@ interface IRentRouter01 {
         bool approveMax, uint8 v, bytes32 r, bytes32 s
     ) external returns (uint amountETH);
 
-    function withdrawFeesWithoutRemovingLiquidity(address token, uint feesMin, address to, uint deadline) external returns (uint256 feesRecieved);
+    function withdrawPremiumFeesWithoutRemovingLiquidity(address token, uint feesMin, address to, uint deadline) external returns (uint256 feesRecieved);
 
 
 

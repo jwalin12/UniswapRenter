@@ -78,21 +78,15 @@ contract RentPoolFactory is IRentPoolFactory {
     }
 
     function setFee(uint256 newFee) external override {
-        // require(msg.sender == _feeToSetter, "UNAUTHORIZED");
-        // _fee = newFee;
+        require(msg.sender == _feeToSetter, "UNAUTHORIZED");
+        require(newFee >= 0, "INVALID FEE");
+        _fee = newFee;
 
     }
-    function getFee(uint256 newFee) external view override returns (uint256) {
+    function getFee() external view override returns (uint256) {
         return _fee;
 
     }
 
-    function withdrawProtocolFees() external override {
-        // require(msg.sender == _feeToSetter, "UNAUTHORIZED");
-        // uint256 currFees = feesAccrued;
-        // feesAccrued = 0;
-        // payable(_feeTo).transfer(currFees);
-
-    }
 
 }

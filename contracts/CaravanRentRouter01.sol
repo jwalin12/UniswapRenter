@@ -11,6 +11,7 @@ import "./interfaces/IRentPlatform.sol";
 import './interfaces/IRentRouter01.sol';
 import './interfaces/IBlackScholes.sol';
 import './interfaces/IRentPool.sol';
+import './interfaces/IRentPoolFactory.sol';
 import './interfaces/IRentERC20.sol';
 import "./libraries/FeeMath.sol";
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
@@ -38,6 +39,9 @@ contract CaravanRentRouter01 is IRentRouter01 {
     IUniswapV3Factory private immutable uniswapV3Factory;
     IRentPlatform private immutable rentPlatform;
     uint32[] private observationRange = new uint32[](2);
+    uint256 premiumFee; 
+    address feeTo;
+    address feeToSetter;
 
     struct PriceInfo {
         IUniswapV3Pool uniswapPool;
@@ -59,7 +63,7 @@ contract CaravanRentRouter01 is IRentRouter01 {
         _;
     }
 
-    constructor(address _factory, address _WETH, address optionGreekCacheAddress, address blackScholesAddress, address rentPlatformAddress, address uniswapV3FactoryAddress) public {
+    constructor(address _factory, address _WETH, address optionGreekCacheAddress, address blackScholesAddress, address rentPlatformAddress, address uniswapV3FactoryAddress, address _feeTo, address _feeToSetter, uint256 _premiumFee) public {
         factory = _factory;
         WETH = _WETH;
         observationRange[0] = 10;
@@ -68,53 +72,76 @@ contract CaravanRentRouter01 is IRentRouter01 {
         blackScholes = IBlackScholes(blackScholesAddress);
         uniswapV3Factory = IUniswapV3Factory(uniswapV3FactoryAddress);
         rentPlatform = IRentPlatform(rentPlatformAddress);
+        feeTo = _feeTo;
+        feeToSetter = _feeToSetter;
+        premiumFee = _premiumFee;
+
     }
 
     receive() external payable {
     }
 
-
-    function test(int24 tickUpper, int24 tickLower, uint256 durationInSeconds, address poolAddr, uint256 amountToken0) public view returns (PriceInfo memory) {
-        PriceInfo memory price;
-        price.uniswapPool = IUniswapV3Pool(poolAddr);
-        (int24 meanTick, ) = OracleLibrary.consult(poolAddr, 60);
-        price.meanTick = meanTick;
-        price.token0Decimals = 10**IRentERC20(price.uniswapPool.token0()).decimals();
-        price.token1Decimals = 10**IRentERC20(price.uniswapPool.token1()).decimals();
-        //getQuoteAtTick returns token1/token0 (price of token0 in terms of token1)
-        price.tokenAPrice = OracleLibrary.getQuoteAtTick(meanTick, uint128(price.token0Decimals), price.uniswapPool.token0(), price.uniswapPool.token1()); 
-        price.tokenAPrice = FullMath.mulDiv(PRECISE_UNIT, price.tokenAPrice, price.token1Decimals);
-        price.ratioLower = OracleLibrary.getQuoteAtTick(tickLower, uint128(PRECISE_UNIT), price.uniswapPool.token0(), price.uniswapPool.token1()); 
-        price.ratioUpper = OracleLibrary.getQuoteAtTick(tickUpper, uint128(PRECISE_UNIT), price.uniswapPool.token0(), price.uniswapPool.token1());
-        price.ratioMid = (price.ratioLower >> 1) + (price.ratioUpper >> 1) + (price.ratioLower & price.ratioUpper & 1);
-        price.vol = optionGreekCache.getVol(poolAddr);
-        price.rate = optionGreekCache.getRiskFreeRate();
-        //option price is denominated in token1 and is scaled by amount of token0
-        //since its denominated in token1, need to divide by token1 decimals to get actual number
-        IBlackScholes.PricesDeltaStdVega memory optionPrices;
-        if (price.tokenAPrice < price.ratioMid) {
-            optionPrices = 
-                blackScholes.pricesDeltaStdVega(
-                    durationInSeconds,
-                    optionGreekCache.getVol(poolAddr),
-                    price.tokenAPrice,
-                    price.ratioLower,
-                    optionGreekCache.getRiskFreeRate()
-                );
-        } else {
-            optionPrices = 
-                blackScholes.pricesDeltaStdVega(
-                    durationInSeconds,
-                    optionGreekCache.getVol(poolAddr),
-                    price.tokenAPrice,
-                    price.ratioUpper,
-                    optionGreekCache.getRiskFreeRate()
-                );
-        }
-        price.call = FullMath.mulDiv(optionPrices.callPrice, amountToken0, price.token0Decimals);
-        price.put = FullMath.mulDiv(optionPrices.putPrice, amountToken0, price.token0Decimals);
-        return price;
+    function setFeeTo(address to) external override  {
+        require(msg.sender == feeToSetter, "UNAUTHORIZED");
+        feeTo = to;
     }
+
+    function setFeeToSetter(address to) external override  {
+        require(msg.sender == feeToSetter, "UNAUTHORIZED");
+        feeToSetter = to;
+    }
+
+    function setFee(uint256 newFee) external override {
+        require(msg.sender == feeToSetter, "UNAUTHORIZED");
+        require(newFee >= 0, "INVALID FEE");
+        premiumFee = newFee;
+
+    }
+
+
+
+
+    // function test(int24 tickUpper, int24 tickLower, uint256 durationInSeconds, address poolAddr, uint256 amountToken0) public view returns (PriceInfo memory) {
+    //     PriceInfo memory price;
+    //     price.uniswapPool = IUniswapV3Pool(poolAddr);
+    //     (int24 meanTick, ) = OracleLibrary.consult(poolAddr, 60);
+    //     price.meanTick = meanTick;
+    //     price.token0Decimals = 10**IRentERC20(price.uniswapPool.token0()).decimals();
+    //     price.token1Decimals = 10**IRentERC20(price.uniswapPool.token1()).decimals();
+    //     //getQuoteAtTick returns token1/token0 (price of token0 in terms of token1)
+    //     price.tokenAPrice = OracleLibrary.getQuoteAtTick(meanTick, uint128(price.token0Decimals), price.uniswapPool.token0(), price.uniswapPool.token1()); 
+    //     price.tokenAPrice = FullMath.mulDiv(PRECISE_UNIT, price.tokenAPrice, price.token1Decimals);
+    //     price.ratioLower = OracleLibrary.getQuoteAtTick(tickLower, uint128(PRECISE_UNIT), price.uniswapPool.token0(), price.uniswapPool.token1()); 
+    //     price.ratioUpper = OracleLibrary.getQuoteAtTick(tickUpper, uint128(PRECISE_UNIT), price.uniswapPool.token0(), price.uniswapPool.token1());
+    //     price.ratioMid = (price.ratioLower >> 1) + (price.ratioUpper >> 1) + (price.ratioLower & price.ratioUpper & 1);
+    //     price.vol = optionGreekCache.getVol(poolAddr);
+    //     price.rate = optionGreekCache.getRiskFreeRate();
+    //     //option price is denominated in token1 and is scaled by amount of token0
+    //     //since its denominated in token1, need to divide by token1 decimals to get actual number
+    //     IBlackScholes.PricesDeltaStdVega memory optionPrices;
+    //     if (price.tokenAPrice < price.ratioMid) {
+    //         optionPrices = 
+    //             blackScholes.pricesDeltaStdVega(
+    //                 durationInSeconds,
+    //                 optionGreekCache.getVol(poolAddr),
+    //                 price.tokenAPrice,
+    //                 price.ratioLower,
+    //                 optionGreekCache.getRiskFreeRate()
+    //             );
+    //     } else {
+    //         optionPrices = 
+    //             blackScholes.pricesDeltaStdVega(
+    //                 durationInSeconds,
+    //                 optionGreekCache.getVol(poolAddr),
+    //                 price.tokenAPrice,
+    //                 price.ratioUpper,
+    //                 optionGreekCache.getRiskFreeRate()
+    //             );
+    //     }
+    //     price.call = FullMath.mulDiv(optionPrices.callPrice, amountToken0, price.token0Decimals);
+    //     price.put = FullMath.mulDiv(optionPrices.putPrice, amountToken0, price.token0Decimals);
+    //     return price;
+    // }
     
     /**
    * @dev Returns the price (denominated in token1) of a rental LP with the given params. Mul by priceUSD(token1) to get rental price in USD.
@@ -198,7 +225,7 @@ contract CaravanRentRouter01 is IRentRouter01 {
         console.log(params.amount0Desired);
         uint256 price = getRentalPrice(params.tickUpper, params.tickLower, params.duration, poolAddr, params.amount0Desired);
         require(price > 0, "POSITION TOO SMALL");
-        require(price <= params.priceMax, "RENTAL PRICE TOO HI GH");
+        require(price <= params.priceMax, "RENTAL PRICE TOO HIGH");
         require(msg.value >= price, "INSUFFICIENT FUNDS");
 
         //safe transfer amountDesired
@@ -208,17 +235,15 @@ contract CaravanRentRouter01 is IRentRouter01 {
         IERC20(params.token1).transferFrom(msg.sender, address(rentPlatform), params.amount1Desired);
 
        (uint256 tokenId, uint256 amount0, uint256 amount1) = rentPlatform.createNewRental(params, poolAddr, msg.sender);
-        //(bool success, bytes memory result) = address(rentPlatform).delegatecall(abi.encodeWithSignature("createNewRental(IRentPlatform.BuyRentalParams memory params, address uniswapPoolAddr, address _renter)",params, poolAddr, msg.sender));
-        //require(success, "FAILED TO CREATE RENTAL");
-        //(uint256 tokenId, uint256 amount0, uint256 amount1) = abi.decode(result, (uint256, uint256, uint256));
+        require(tokenId != 0, "FAILED TO CREATE RENTAL");
         console.log("CREATED RENTAL",tokenId);
 
 
-        
-        (uint token0Fee, uint token1Fee) = FeeMath.calculateFeeSplit(pool0, pool1, amount0, amount1, price);
+        (uint token0Fee, uint token1Fee) = FeeMath.calculateFeeSplit(pool0, pool1, amount0, amount1, price* (1- premiumFee/10000));
         console.log("TOKEN0Fee", token0Fee);
         if (token0Fee > 0) TransferHelper.safeTransferETH(address(pool0), token0Fee);
         if (token1Fee > 0) TransferHelper.safeTransferETH(address(pool1), token1Fee);
+        if (premiumFee > 0) TransferHelper.safeTransferETH(feeTo, price * premiumFee/10000);
         console.log("fee split");
         //send back dust ETH
         if (msg.value > price) TransferHelper.safeTransferETH(msg.sender, msg.value - price);
@@ -271,9 +296,9 @@ contract CaravanRentRouter01 is IRentRouter01 {
     }
 
 
-    function withdrawFeesWithoutRemovingLiquidity(address token, uint feesMin, address to, uint deadline) ensure(deadline) override external returns (uint256 feesRecieved) {
+    function withdrawPremiumFeesWithoutRemovingLiquidity(address token, uint feesMin, address to, uint deadline) ensure(deadline) override external returns (uint256 feesRecieved) {
         address pool = IRentPoolFactory(factory).getPool(token);
-        feesRecieved = IRentPool(pool).withdrawFees(to);
+        feesRecieved = IRentPool(pool).withdrawPremiumFees(to);
         require(feesRecieved >= feesMin, "INSUFFICIENT FEES RECIEVED");
 
     }
@@ -380,6 +405,7 @@ contract CaravanRentRouter01 is IRentRouter01 {
             amount, amountMin, amountFeesMin, to, deadline
         );
     }
+
 
 
 

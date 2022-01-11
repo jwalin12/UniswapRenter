@@ -58,7 +58,7 @@ contract RentPool is IRentPool, RentERC20 {
 
     event Mint(address indexed sender, uint amount);
     event Burn(address indexed sender, uint amount,  address indexed to);
-    event WithdrawFees(address indexed to, uint amount);
+    event WithdrawPremiumFees(address indexed to, uint amount);
     event Sync(uint112 reserve);
 
     constructor() public {
@@ -82,9 +82,12 @@ contract RentPool is IRentPool, RentERC20 {
         emit Sync(reserve);
     }
 
-    function _mintFee() private returns (bool feeOn) {
+    function _mintFee(uint256 liquidity) private returns (bool feeOn) {
         address feeTo = IRentPoolFactory(factory).feeTo();
         feeOn = feeTo != address(0);
+        if (feeOn) {
+            _mint(feeTo, liquidity * (IRentPoolFactory(factory).getFee()/10000));
+        }
         return feeOn;
  
     }
@@ -101,7 +104,11 @@ contract RentPool is IRentPool, RentERC20 {
             liquidity = amount;
         }
         require(liquidity > 0, "INSUFFICIENT_LIQUIDITY_MINTED");
-        _mint(to, liquidity);
+        if (_mintFee(liquidity)) {
+            _mint(to, liquidity* (1 - (IRentPoolFactory(factory).getFee()/10000)));
+        } else {
+            _mint(to, liquidity);
+        }
         _update(uint112(balance), _reserve);
         emit Mint(msg.sender, amount);
     }
@@ -113,7 +120,6 @@ contract RentPool is IRentPool, RentERC20 {
         address _token = token;                                // gas savings
         uint balance = IERC20(_token).balanceOf(address(this));
         uint liquidity = balanceOf[address(this)];
-        bool feeOn = _mintFee();
         uint _totalSupply = totalSupply; // gas savings, must be defined here since totalSupply can update in _mintFee
         uint256 amountOfTokens = liquidity.mul(balance) / _totalSupply; // using balances ensures pro-rata distribution
         uint256 amountOfFees = liquidity.mul(feesAccrued)/ _totalSupply;
@@ -129,7 +135,7 @@ contract RentPool is IRentPool, RentERC20 {
 
 
     // this low-level function should be called from a contract which performs important safety checks
-    function withdrawFees (address to) external override returns (uint256 amountOfFees) {
+    function withdrawPremiumFees (address to) external override returns (uint256 amountOfFees) {
         (, uint256 feesAccrued,) = _getReserves(); // gas savings
         address _token = token;
         uint liquidity = balanceOf[address(to)];
@@ -138,7 +144,7 @@ contract RentPool is IRentPool, RentERC20 {
         payable(to).transfer(amountOfFees);
         uint256 balance = IERC20(_token).balanceOf(address(this));
         _update(uint112(balance), reserve);
-        emit WithdrawFees(to, amountOfFees);
+        emit WithdrawPremiumFees(to, amountOfFees);
     }
 
 

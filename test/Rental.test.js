@@ -60,7 +60,7 @@ describe("Router", () => {
         rentalEscrow = await RentalEscrow.deploy("0xC36442b4a4522E871399CD717aBDD847Ab11FE88",rentalPlatform.address,account.address);
         await rentalEscrow.setAutomatedRentalPlatform(rentalPlatform.address);
         await rentalPlatform.setRentalEscrow(rentalEscrow.address);
-        router = await Router.deploy(rentPoolFactory.address,"0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2",greekCache.address, blackScholes.address, rentalPlatform.address, FACTORY_ADDRESS);
+        router = await Router.deploy(rentPoolFactory.address,"0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2",greekCache.address, blackScholes.address, rentalPlatform.address, FACTORY_ADDRESS, account.address, account.address, 0);
         console.log("Router contract deployed to:", router.address);
 
     });
@@ -183,11 +183,6 @@ describe("Router", () => {
         daiPoolAddr = await rentPoolFactory.getPool(daiAddr);
         daiRentPool = await new ethers.Contract(daiPoolAddr, rentPoolABI, provider);
         console.log(await daiRentPool.getReserves());
-
-    
-
-
-
 
     });
 

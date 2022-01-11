@@ -47,7 +47,7 @@ describe("Router", async () => {
         rentalEscrow = await RentalEscrow.deploy("0xC36442b4a4522E871399CD717aBDD847Ab11FE88",rentalPlatform.address,account.address);
         await rentalEscrow.setAutomatedRentalPlatform(rentalPlatform.address);
         await rentalPlatform.setRentalEscrow(rentalEscrow.address);
-        router = await Router.deploy(rentPoolFactory.address,WETH.address,greekCache.address, blackScholes.address, "0x1F98431c8aD98523631AE4a59f267346ea31F984", rentalPlatform.address);
+        router = await Router.deploy(rentPoolFactory.address,WETH.address,greekCache.address, blackScholes.address, "0x1F98431c8aD98523631AE4a59f267346ea31F984", rentalPlatform.address, account.address, account.address, 0);
         console.log("Router contract deployed to:", router.address);
     });
 
