@@ -76,8 +76,8 @@ describe("Router", async () => {
                 provider
             );
             greekCache.connect(account).setPoolAddressToVol("0xc2e9f25be6257c210d7adf0d4cd6e3e881ba25f8", BigInt(.94*PRECISE_UNIT));
-            const lowerTick = 0; //81609; // ETH/USDC = $3500 per ETH = 3499.90807274
-            const upperTick = 60; //82944; // ETH/USDC = $4000 per ETH = 3999.74267845
+            const lowerTick = -887272; //81609; // ETH/USDC = $3500 per ETH = 3499.90807274
+            const upperTick = 887272; //82944; // ETH/USDC = $4000 per ETH = 3999.74267845
             const yearInSeconds = 31556926; // # of secs per year
             const durationInSeconds = 10000;
             let rentalPrice = await router.test(upperTick, lowerTick, durationInSeconds, "0xc2e9f25be6257c210d7adf0d4cd6e3e881ba25f8", BigInt(1000000000000000000));
