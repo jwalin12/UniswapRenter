@@ -59,6 +59,8 @@ contract OptionPlatform is
     /**
     Sets owner of new smart contract.
      */
+
+     
     function setOwner(address payable newOwner) public {
         require(msg.sender == _owner, "Unauthorized action");
         _owner = newOwner;
