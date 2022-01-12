@@ -6,7 +6,7 @@ import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 import "@openzeppelin/contracts/token/ERC721/IERC721Receiver.sol";
 import "@uniswap/v3-periphery/contracts/interfaces/INonfungiblePositionManager.sol";
 import "@uniswap/v3-periphery/contracts/base/Multicall.sol";
-import "./interfaces/IRentPlatform.sol";
+import "./abstract/IRentPlatform.sol";
 
 
 import "utils/structs/tokenAddresses.sol";

@@ -7,7 +7,7 @@ import '@uniswap/v3-core/contracts/interfaces/IUniswapV3Pool.sol';
 import '@uniswap/v3-core/contracts/interfaces/IUniswapV3Factory.sol';
 import '@uniswap/v3-periphery/contracts/libraries/OracleLibrary.sol';
 import '@uniswap/v3-core/contracts/libraries/FullMath.sol';
-import "./interfaces/IRentPlatform.sol";
+import "./abstract/IRentPlatform.sol";
 import './interfaces/IRentRouter01.sol';
 import './interfaces/IBlackScholes.sol';
 import './interfaces/IRentPool.sol';
@@ -221,9 +221,7 @@ contract CaravanRentRouter01 is IRentRouter01 {
         //create rental on existing rent platform
         address poolAddr = uniswapV3Factory.getPool(params.token0, params.token1, params.fee);
         require(poolAddr != address(0), "UNISWAP POOL DOES NOT EXIST");
-        console.log(poolAddr);
         uint256 price = getRentalPrice(params.tickUpper, params.tickLower, params.duration, poolAddr, params.amount0Desired);
-        console.log(price);
         //require(price > 0, "POSITION TOO SMALL OR TOO FAR OUT OF RANGE");
         require(price <= params.priceMax, "RENTAL PRICE TOO HIGH");
         
@@ -232,6 +230,8 @@ contract CaravanRentRouter01 is IRentRouter01 {
         //safe transfer amountDesired
         //TransferHelper.safeTransferFrom(params.token0, msg.sender ,address(this), params.amount0Desired);
         //TransferHelper.safeTransferFrom(params.token1, msg.sender ,address(this), params.amount1Desired);
+        console.log("AMT DESIRED",params.amount0Desired);
+        console.log("CURR BAL",IERC20(params.token0).balanceOf(msg.sender));
         IERC20(params.token0).transferFrom(msg.sender, address(rentPlatform), params.amount0Desired);
         IERC20(params.token1).transferFrom(msg.sender, address(rentPlatform), params.amount1Desired);
 
@@ -241,13 +241,13 @@ contract CaravanRentRouter01 is IRentRouter01 {
 
 
         (uint token0Fee, uint token1Fee) = FeeMath.calculateFeeSplit(pool0, pool1, amount0, amount1, price* (1- premiumFee/10000));
-        console.log("TOKEN0Fee", token0Fee);
         if (token0Fee > 0) TransferHelper.safeTransferETH(address(pool0), token0Fee);
         if (token1Fee > 0) TransferHelper.safeTransferETH(address(pool1), token1Fee);
         if (premiumFee > 0) TransferHelper.safeTransferETH(feeTo, price * premiumFee/10000);
-        console.log("fee split");
         //send back dust ETH
         if (msg.value > price) TransferHelper.safeTransferETH(msg.sender, msg.value - price);
+        if (amount0 < params.amount0Desired) IERC20(params.token0).transferFrom(address(this), address(rentPlatform), params.amount0Desired- amount0);
+        if (amount1 < params.amount1Desired) IERC20(params.token1).transferFrom(address(this), address(rentPlatform), params.amount1Desired- amount1);
 
 
     }

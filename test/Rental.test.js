@@ -10,11 +10,14 @@ let router;
 let rentPoolFactory;
 let rentalEscrow;
 let greekCache;
-let account
 let provider;
 let deadline;
 let rentalParams;
 let tokenId;
+let poolContract;
+let swapRouter;
+let account2;
+let account;
 
 
 const FACTORY_ADDRESS = "0x1F98431c8aD98523631AE4a59f267346ea31F984";
@@ -23,7 +26,7 @@ const SWAP_ROUTER_ADDRESS = "0xE592427A0AEce92De3Edee1F18E0157C05861564";
 before(async () => {
     
     provider = await new ethers.providers.Web3Provider(network.provider);
-    [account] = await ethers.getSigners();
+    [account, account2] = await ethers.getSigners();
   });
 
 
@@ -67,11 +70,13 @@ describe("Router", () => {
 
         WethContract = await new ethers.Contract(WethAddr, wethABI, provider);
         WethContract.connect(account).deposit({value: await ethers.utils.parseEther('20')});
+        WethContract.connect(account2).deposit({value: await ethers.utils.parseEther('20')});
         await WethContract.connect(account).approve(SWAP_ROUTER_ADDRESS, await ethers.utils.parseEther('14'));
+        await WethContract.connect(account2).approve(SWAP_ROUTER_ADDRESS, await ethers.utils.parseEther('14'));
 
 
 
-        const poolContract = await new ethers.Contract(
+        poolContract = await new ethers.Contract(
             "0xc2e9f25be6257c210d7adf0d4cd6e3e881ba25f8",
             v3PoolABI,
             provider
@@ -86,7 +91,7 @@ describe("Router", () => {
 
         greekCache.connect(account).setPoolAddressToVol("0xc2e9f25be6257c210d7adf0d4cd6e3e881ba25f8", BigInt(.94*PRECISE_UNIT));
 
-        const swapRouter = await new ethers.Contract(SWAP_ROUTER_ADDRESS, swapABI, provider);
+        swapRouter = await new ethers.Contract(SWAP_ROUTER_ADDRESS, swapABI, provider);
         ExactInputSingleParams = {
         tokenIn: WethAddr,
         tokenOut: daiAddr,
@@ -100,7 +105,7 @@ describe("Router", () => {
         poolSlot0 = await poolContract.slot0();
         console.log("TOKEN0:",await poolContract.token0());
         await swapRouter.connect(account).exactInputSingle(ExactInputSingleParams);
-        await console.log("WETH BAL", WethContract.balanceOf(account.address) > ethers.utils.parseEther("1") );
+        await console.log("DAI BAL", DaiContract.balanceOf(account.address) > ethers.utils.parseEther("1") );
         rentalParams = {
             tickUpper: -14940,
             tickLower: -15000,
@@ -109,9 +114,9 @@ describe("Router", () => {
             priceMax: 10000000000000,
             token0: daiAddr,
             token1: WethAddr,
-            amount0Desired: ethers.utils.parseEther("1"),
+            amount0Desired: ethers.utils.parseEther("0.000001"),
             amount1Desired: ethers.utils.parseEther("0"),
-            amount0Min: ethers.utils.parseEther("1"),
+            amount0Min: ethers.utils.parseEther("0.000001"),
             amount1Min: ethers.utils.parseEther("0"),
             deadline: deadline + 100000
         }
@@ -120,13 +125,8 @@ describe("Router", () => {
         await DaiContract.connect(account).approve(router.address, ethers.utils.parseEther('20'));
         await WethContract.connect(account).approve(router.address, ethers.utils.parseEther('20'));
         await router.addLiquidityETH(ethers.utils.parseEther('10'), ethers.utils.parseEther('0'), account.address, ethers.BigNumber.from(deadline),{ value: ethers.utils.parseEther('10') });
-        console.log("APPROVAL OF DAI", await DaiContract.allowance(account.address, router.address));
-        console.log("BAL OF DAI",await DaiContract.balanceOf(account.address) >ethers.utils.parseEther('10') );
         await router.addLiquidity(daiAddr, ethers.utils.parseEther('10'), ethers.utils.parseEther('0'), account.address, ethers.BigNumber.from(deadline)); 
-        console.log("liquidty added");
-        console.log("Rental Params:",rentalParams)
         await router.connect(account).buyRental(rentalParams, { value: ethers.utils.parseEther('1') });
-        console.log("MADE RENTAL W NO ERRORZ");
         daiPoolAddr = await rentPoolFactory.getPool(daiAddr);
         daiRentPool = await new ethers.Contract(daiPoolAddr, rentPoolABI, provider);
         console.log(await daiRentPool.getReserves());
@@ -134,18 +134,24 @@ describe("Router", () => {
     });
 
     it("should create a rental", async () => {
-        expect(await rentalPlatform.rentalsInProgress(0) !=0, "rental not created");
+        tokenId = await rentalPlatform.rentalsInProgress(0)
+        expect(tokenId !=0, "rental not created");
+        rentInfoParams = rentalPlatform.getRentalInfoParams(tokenId)
+        expect(rentInfoParams[0] == rentalEscrow.address,"incorrect original owner");
+        expect(rentInfoParams[1] == account.address, "INCORRECT RENTER");
+        expect(rentInfoParams[4] == poolContract.address, "INCORRECT V3 POOL");
+        expect(rentInfoParams[2] == tokenId, "TokenIds do not match up!");
+
 
     });
 
 
-    it("should allow renter to collect fees", async () => {
-        tokenId = await rentalPlatform.rentalsInProgress(0);
-        console.log("TOKENID: ", tokenId);
+    it("should allow fees to be collected", async () => {
         await rentalPlatform.collectFeesForRenter(tokenId, 0, 0);
 
-
     });
+
+
 
     // it("should return error when collecting fees when rental is up", async () => {
     //     await network.provider.send("evm_setNextBlockTimestamp", [deadline +100001]);
@@ -156,13 +162,41 @@ describe("Router", () => {
         await network.provider.send("evm_setNextBlockTimestamp", [deadline +100003]);
         await rentalPlatform.endRental(await rentalPlatform.rentalsInProgress(0));
 
+
     });
 
     it ("should reuse old position", async () => {
-        rentalParams.deadline = deadline +100010
-        await router.connect(account).buyRental(rentalParams, { value: ethers.utils.parseEther('1') });
-        expect(await rentalPlatform.rentalsInProgress(0) == tokenId);
+        ExactInputSingleParams.recipient = account2.address;
+        ExactInputSingleParams.deadline = deadline +100050;
+        await swapRouter.connect(account2).exactInputSingle(ExactInputSingleParams);
+        rentalParams.deadline = deadline +100050
+        await console.log("DAI BAL ACCT 2", await DaiContract.balanceOf(account2.address));
+        await DaiContract.connect(account2).approve(router.address, ethers.utils.parseEther('20'));
+        await WethContract.connect(account2).approve(router.address, ethers.utils.parseEther('20'));
+        await router.connect(account2).buyRental(rentalParams, { value: ethers.utils.parseEther('1') });
+        expect(await rentalPlatform.rentalsInProgress(0) == tokenId, "position not reused");
+        rentInfoParams = rentalPlatform.getRentalInfoParams(tokenId);
+        expect(rentInfoParams[0] == rentalEscrow.address,"incorrect original owner");
+        expect(rentInfoParams[1] == account.address, "INCORRECT RENTER");
+        expect(rentInfoParams[4] == poolContract.address, "INCORRECT V3 POOL");
+        expect(rentInfoParams[2] == tokenId, "TokenIds do not match up!");
     });
+
+
+
+    it ("should not reuse old position when it is being used", async () => {
+        rentalParams.deadline = deadline +100050
+        await router.connect(account).buyRental(rentalParams, { value: ethers.utils.parseEther('1')});
+        expect(await rentalPlatform.rentalsInProgress(1) != 0, "not creating new position");
+        expect(await rentalPlatform.rentalsInProgress(1) != tokenId, "reusing old position");
+        rentInfoParams = rentalPlatform.getRentalInfoParams(tokenId)
+        expect(rentInfoParams[0] == rentalEscrow.address,"incorrect original owner");
+        expect(rentInfoParams[1] == account.address, "INCORRECT RENTER");
+        expect(rentInfoParams[4] == poolContract.address, "INCORRECT V3 POOL");
+        expect(rentInfoParams[2] == tokenId, "TokenIds do not match up!");
+    });
+
+    
 
 
 
