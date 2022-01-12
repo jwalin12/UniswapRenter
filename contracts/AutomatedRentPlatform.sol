@@ -71,18 +71,27 @@ contract AutomatedRentPlatform is IRentPlatform  {
                 //require(success, "FAILED TO MINT NEW POS");
                 //(tokenId, amount0, amount1) = abi.decode(result, (uint256, uint256, uint256));
 
+
             }
+            rentalsInProgress.push(tokenId);
            IAutomatedRentalEscrow(_rentalEscrow).handleNewRental(tokenId, params,uniswapPoolAddr, _renter);
     }
 
     function endRental(uint256 tokenId) external override { 
         IAutomatedRentalEscrow(_rentalEscrow).handleExpiredRental(tokenId);
+        removeRental(tokenId);
     }
 
     function collectFeesForRenter(uint256 tokenId, uint256 token0Min, uint256 token1Min) external override returns (uint256, uint256) {
         (uint256 token0Amt, uint256 token1Amt) = IAutomatedRentalEscrow(_rentalEscrow).collectFeesForCurrentRenter(tokenId);
         require(token0Amt >= token0Min && token1Amt >= token1Min, "NOT ENOUGH FEES COLLECTED");
         return (token0Amt, token1Amt);
+
+    }
+
+    function removeRental(uint256 tokenId) private {
+        rentalsInProgress.pop();
+
 
     }
 

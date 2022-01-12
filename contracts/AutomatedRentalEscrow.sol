@@ -10,7 +10,7 @@ import "hardhat/console.sol";
 contract AutomatedRentalEscrow is IAutomatedRentalEscrow {
 
     mapping(uint256 => IRentPlatform.RentInfo) public tokenIdToRentInfo;
-    
+
 
     address public _automatedRentalPlatform;
     address public _owner;
@@ -144,6 +144,7 @@ contract AutomatedRentalEscrow is IAutomatedRentalEscrow {
             amount0Max: 1000000000000,
             amount1Max: 1000000000000
          }));
+
 
 
     }

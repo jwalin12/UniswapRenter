@@ -215,18 +215,18 @@ contract CaravanRentRouter01 is IRentRouter01 {
         //check if enough liquidity is in the pool
         IRentPool pool0 = IRentPool(IRentPoolFactory(factory).getPool(params.token0));
         IRentPool pool1 = IRentPool(IRentPoolFactory(factory).getPool(params.token1));
-
+        require(params.tickUpper > params.tickLower, "INCORRECT TICKS");
+        require(block.timestamp < params.deadline, "DEADLINE PASSED");
         //check if price is right (call get price) and compare to slippage tolerance
         //create rental on existing rent platform
-        console.log("getting pool...");
         address poolAddr = uniswapV3Factory.getPool(params.token0, params.token1, params.fee);
         require(poolAddr != address(0), "UNISWAP POOL DOES NOT EXIST");
-        console.log("getting price...");
         console.log(poolAddr);
         uint256 price = getRentalPrice(params.tickUpper, params.tickLower, params.duration, poolAddr, params.amount0Desired);
         console.log(price);
-        require(price > 0, "POSITION TOO SMALL");
+        //require(price > 0, "POSITION TOO SMALL OR TOO FAR OUT OF RANGE");
         require(price <= params.priceMax, "RENTAL PRICE TOO HIGH");
+        
         require(msg.value >= price, "INSUFFICIENT FUNDS");
 
         //safe transfer amountDesired

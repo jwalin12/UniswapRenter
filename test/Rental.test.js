@@ -4,6 +4,7 @@ const wethABI = require("../data/abi/contracts/WETH9.sol/WETH9.json");
 const erc20ABI = require("../data/abi/contracts/ERC20.sol/ERC20.json");
 const v3PoolABI = require("../data/abi/@uniswap/v3-core/contracts/interfaces/IUniswapV3Pool.sol/IUniswapV3Pool.json")
 const swapABI = require("../data/abi/@uniswap/v3-periphery/contracts/interfaces/ISwapRouter.sol/ISwapRouter.json");
+const { expect } = require("chai");
 const PRECISE_UNIT = 1e18;
 let router;
 let rentPoolFactory;
@@ -11,6 +12,9 @@ let rentalEscrow;
 let greekCache;
 let account
 let provider;
+let deadline;
+let rentalParams;
+let tokenId;
 
 
 const FACTORY_ADDRESS = "0x1F98431c8aD98523631AE4a59f267346ea31F984";
@@ -78,7 +82,7 @@ describe("Router", () => {
         blockNumber = await provider.getBlockNumber();
         block = await provider.getBlock(blockNumber);
         timestamp = block.timestamp;
-        const deadline = timestamp + 864000
+        deadline = timestamp + 864000
 
         greekCache.connect(account).setPoolAddressToVol("0xc2e9f25be6257c210d7adf0d4cd6e3e881ba25f8", BigInt(.94*PRECISE_UNIT));
 
@@ -98,8 +102,8 @@ describe("Router", () => {
         await swapRouter.connect(account).exactInputSingle(ExactInputSingleParams);
         await console.log("WETH BAL", WethContract.balanceOf(account.address) > ethers.utils.parseEther("1") );
         rentalParams = {
-            tickUpper: 0,
-            tickLower: 60,
+            tickUpper: -14940,
+            tickLower: -15000,
             fee: 3000,
             duration: 10000,
             priceMax: 10000000000000,
@@ -130,20 +134,34 @@ describe("Router", () => {
     });
 
     it("should create a rental", async () => {
+        expect(await rentalPlatform.rentalsInProgress(0) !=0, "rental not created");
 
     });
 
-
-    it("should split fees correctly", async () => {
-
-    });
 
     it("should allow renter to collect fees", async () => {
+        tokenId = await rentalPlatform.rentalsInProgress(0);
+        console.log("TOKENID: ", tokenId);
+        await rentalPlatform.collectFeesForRenter(tokenId, 0, 0);
+
 
     });
 
-    it("should return rental when time is up", async () => {
+    // it("should return error when collecting fees when rental is up", async () => {
+    //     await network.provider.send("evm_setNextBlockTimestamp", [deadline +100001]);
+    //     expect(await rentalPlatform.collectFeesForRenter(await rentalPlatform.rentalsInProgress(0), 0, 0));
 
+    // });
+    it("should end rental", async () => {
+        await network.provider.send("evm_setNextBlockTimestamp", [deadline +100003]);
+        await rentalPlatform.endRental(await rentalPlatform.rentalsInProgress(0));
+
+    });
+
+    it ("should reuse old position", async () => {
+        rentalParams.deadline = deadline +100010
+        await router.connect(account).buyRental(rentalParams, { value: ethers.utils.parseEther('1') });
+        expect(await rentalPlatform.rentalsInProgress(0) == tokenId);
     });
 
 
