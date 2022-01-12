@@ -101,47 +101,47 @@ contract CaravanRentRouter01 is IRentRouter01 {
 
 
 
-    // function test(int24 tickUpper, int24 tickLower, uint256 durationInSeconds, address poolAddr, uint256 amountToken0) public view returns (PriceInfo memory) {
-    //     PriceInfo memory price;
-    //     price.uniswapPool = IUniswapV3Pool(poolAddr);
-    //     (int24 meanTick, ) = OracleLibrary.consult(poolAddr, 60);
-    //     price.meanTick = meanTick;
-    //     price.token0Decimals = 10**IRentERC20(price.uniswapPool.token0()).decimals();
-    //     price.token1Decimals = 10**IRentERC20(price.uniswapPool.token1()).decimals();
-    //     //getQuoteAtTick returns token1/token0 (price of token0 in terms of token1)
-    //     price.tokenAPrice = OracleLibrary.getQuoteAtTick(meanTick, uint128(price.token0Decimals), price.uniswapPool.token0(), price.uniswapPool.token1()); 
-    //     price.tokenAPrice = FullMath.mulDiv(PRECISE_UNIT, price.tokenAPrice, price.token1Decimals);
-    //     price.ratioLower = OracleLibrary.getQuoteAtTick(tickLower, uint128(PRECISE_UNIT), price.uniswapPool.token0(), price.uniswapPool.token1()); 
-    //     price.ratioUpper = OracleLibrary.getQuoteAtTick(tickUpper, uint128(PRECISE_UNIT), price.uniswapPool.token0(), price.uniswapPool.token1());
-    //     price.ratioMid = (price.ratioLower >> 1) + (price.ratioUpper >> 1) + (price.ratioLower & price.ratioUpper & 1);
-    //     price.vol = optionGreekCache.getVol(poolAddr);
-    //     price.rate = optionGreekCache.getRiskFreeRate();
-    //     //option price is denominated in token1 and is scaled by amount of token0
-    //     //since its denominated in token1, need to divide by token1 decimals to get actual number
-    //     IBlackScholes.PricesDeltaStdVega memory optionPrices;
-    //     if (price.tokenAPrice < price.ratioMid) {
-    //         optionPrices = 
-    //             blackScholes.pricesDeltaStdVega(
-    //                 durationInSeconds,
-    //                 optionGreekCache.getVol(poolAddr),
-    //                 price.tokenAPrice,
-    //                 price.ratioLower,
-    //                 optionGreekCache.getRiskFreeRate()
-    //             );
-    //     } else {
-    //         optionPrices = 
-    //             blackScholes.pricesDeltaStdVega(
-    //                 durationInSeconds,
-    //                 optionGreekCache.getVol(poolAddr),
-    //                 price.tokenAPrice,
-    //                 price.ratioUpper,
-    //                 optionGreekCache.getRiskFreeRate()
-    //             );
-    //     }
-    //     price.call = FullMath.mulDiv(optionPrices.callPrice, amountToken0, price.token0Decimals);
-    //     price.put = FullMath.mulDiv(optionPrices.putPrice, amountToken0, price.token0Decimals);
-    //     return price;
-    // }
+    function test(int24 tickUpper, int24 tickLower, uint256 durationInSeconds, address poolAddr, uint256 amountToken0) public view returns (PriceInfo memory) {
+        PriceInfo memory price;
+        price.uniswapPool = IUniswapV3Pool(poolAddr);
+        (int24 meanTick, ) = OracleLibrary.consult(poolAddr, 60);
+        price.meanTick = meanTick;
+        price.token0Decimals = 10**IRentERC20(price.uniswapPool.token0()).decimals();
+        price.token1Decimals = 10**IRentERC20(price.uniswapPool.token1()).decimals();
+        //getQuoteAtTick returns token1/token0 (price of token0 in terms of token1)
+        price.tokenAPrice = OracleLibrary.getQuoteAtTick(meanTick, uint128(price.token0Decimals), price.uniswapPool.token0(), price.uniswapPool.token1()); 
+        price.tokenAPrice = FullMath.mulDiv(PRECISE_UNIT, price.tokenAPrice, price.token1Decimals);
+        price.ratioLower = OracleLibrary.getQuoteAtTick(tickLower, uint128(PRECISE_UNIT), price.uniswapPool.token0(), price.uniswapPool.token1()); 
+        price.ratioUpper = OracleLibrary.getQuoteAtTick(tickUpper, uint128(PRECISE_UNIT), price.uniswapPool.token0(), price.uniswapPool.token1());
+        price.ratioMid = (price.ratioLower >> 1) + (price.ratioUpper >> 1) + (price.ratioLower & price.ratioUpper & 1);
+        price.vol = optionGreekCache.getVol(poolAddr);
+        price.rate = optionGreekCache.getRiskFreeRate();
+        //option price is denominated in token1 and is scaled by amount of token0
+        //since its denominated in token1, need to divide by token1 decimals to get actual number
+        IBlackScholes.PricesDeltaStdVega memory optionPrices;
+        if (price.tokenAPrice < price.ratioMid) {
+            optionPrices = 
+                blackScholes.pricesDeltaStdVega(
+                    durationInSeconds,
+                    optionGreekCache.getVol(poolAddr),
+                    price.tokenAPrice,
+                    price.ratioLower,
+                    optionGreekCache.getRiskFreeRate()
+                );
+        } else {
+            optionPrices = 
+                blackScholes.pricesDeltaStdVega(
+                    durationInSeconds,
+                    optionGreekCache.getVol(poolAddr),
+                    price.tokenAPrice,
+                    price.ratioUpper,
+                    optionGreekCache.getRiskFreeRate()
+                );
+        }
+        price.call = FullMath.mulDiv(optionPrices.callPrice, amountToken0, price.token0Decimals);
+        price.put = FullMath.mulDiv(optionPrices.putPrice, amountToken0, price.token0Decimals);
+        return price;
+    }
     
     /**
    * @dev Returns the price (denominated in token1) of a rental LP with the given params. Mul by priceUSD(token1) to get rental price in USD.
@@ -222,8 +222,9 @@ contract CaravanRentRouter01 is IRentRouter01 {
         address poolAddr = uniswapV3Factory.getPool(params.token0, params.token1, params.fee);
         require(poolAddr != address(0), "UNISWAP POOL DOES NOT EXIST");
         console.log("getting price...");
-        console.log(params.amount0Desired);
+        console.log(poolAddr);
         uint256 price = getRentalPrice(params.tickUpper, params.tickLower, params.duration, poolAddr, params.amount0Desired);
+        console.log(price);
         require(price > 0, "POSITION TOO SMALL");
         require(price <= params.priceMax, "RENTAL PRICE TOO HIGH");
         require(msg.value >= price, "INSUFFICIENT FUNDS");

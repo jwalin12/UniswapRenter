@@ -71,7 +71,7 @@ describe("Router", () => {
             "0xc2e9f25be6257c210d7adf0d4cd6e3e881ba25f8",
             v3PoolABI,
             provider
-            );
+        );
 
 
 
@@ -80,7 +80,7 @@ describe("Router", () => {
         timestamp = block.timestamp;
         const deadline = timestamp + 864000
 
-        greekCache.connect(account).setPoolAddressToVol(poolAddress, 1);
+        greekCache.connect(account).setPoolAddressToVol("0xc2e9f25be6257c210d7adf0d4cd6e3e881ba25f8", BigInt(.94*PRECISE_UNIT));
 
         const swapRouter = await new ethers.Contract(SWAP_ROUTER_ADDRESS, swapABI, provider);
         ExactInputSingleParams = {
@@ -98,21 +98,19 @@ describe("Router", () => {
         await swapRouter.connect(account).exactInputSingle(ExactInputSingleParams);
         await console.log("WETH BAL", WethContract.balanceOf(account.address) > ethers.utils.parseEther("1") );
         rentalParams = {
-        tickUpper: 0,
-        tickLower: 60,
-        fee: 3000,
-        duration: 10000,
-        priceMax: 10000000000000,
-        token0: daiAddr,
-        token1: WethAddr,
-        amount0Desired: ethers.utils.parseEther("1"),
-        amount1Desired: ethers.utils.parseEther("0"),
-        amount0Min: ethers.utils.parseEther("1"),
-        amount1Min: ethers.utils.parseEther("0"),
-        deadline: deadline + 1000
+            tickUpper: 0,
+            tickLower: 60,
+            fee: 3000,
+            duration: 10000,
+            priceMax: 10000000000000,
+            token0: daiAddr,
+            token1: WethAddr,
+            amount0Desired: ethers.utils.parseEther("1"),
+            amount1Desired: ethers.utils.parseEther("0"),
+            amount0Min: ethers.utils.parseEther("1"),
+            amount1Min: ethers.utils.parseEther("0"),
+            deadline: deadline + 100000
         }
-
-       
         await rentPoolFactory.createPool(daiAddr);
         await rentPoolFactory.createPool(WethAddr);
         await DaiContract.connect(account).approve(router.address, ethers.utils.parseEther('20'));
@@ -122,6 +120,7 @@ describe("Router", () => {
         console.log("BAL OF DAI",await DaiContract.balanceOf(account.address) >ethers.utils.parseEther('10') );
         await router.addLiquidity(daiAddr, ethers.utils.parseEther('10'), ethers.utils.parseEther('0'), account.address, ethers.BigNumber.from(deadline)); 
         console.log("liquidty added");
+        console.log("Rental Params:",rentalParams)
         await router.connect(account).buyRental(rentalParams, { value: ethers.utils.parseEther('1') });
         console.log("MADE RENTAL W NO ERRORZ");
         daiPoolAddr = await rentPoolFactory.getPool(daiAddr);
