@@ -1,7 +1,7 @@
 pragma solidity 0.7.6;
 pragma abicoder v2;
 
-interface IRentPlatform {
+abstract contract IRentPlatform {
 
     struct BuyRentalParams {
         int24 tickUpper;
@@ -26,11 +26,17 @@ interface IRentPlatform {
         address uniswapPoolAddress;
     }
 
+    uint256[] public rentalsInProgress;
 
-    function createNewRental(IRentPlatform.BuyRentalParams memory params, address uniswapPoolAddr, address _renter) external returns (uint256 tokenId,
+
+
+    function createNewRental(IRentPlatform.BuyRentalParams memory params, address uniswapPoolAddr, address _renter) virtual external returns (uint256 tokenId,
             uint256 amount0, uint256 amount1);
 
-    function endRental(uint256 tokenId) external;
+    function endRental(uint256 tokenId) virtual external;
 
-    function collectFeesForRenter(uint256 tokenId, uint256 token0Min, uint256 token1Min) external returns (uint256, uint256);
+    function collectFeesForRenter(uint256 tokenId, uint256 token0Min, uint256 token1Min) virtual external returns (uint256, uint256);
+     
+   function getRentalInfoParams(uint256 tokenId) virtual external returns (address payable, address payable,uint256, uint256, address);
+
 }

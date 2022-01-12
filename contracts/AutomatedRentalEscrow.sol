@@ -2,14 +2,12 @@ pragma solidity 0.7.6;
 pragma abicoder v2;
 
 
-import "./interfaces/IRentPlatform.sol";
-import "./interfaces/IAutomatedRentalEscrow.sol";
+import "./abstract/IRentPlatform.sol";
+import "./abstract/IAutomatedRentalEscrow.sol";
 import '@uniswap/v3-periphery/contracts/interfaces/INonfungiblePositionManager.sol';
 import "hardhat/console.sol";
 
 contract AutomatedRentalEscrow is IAutomatedRentalEscrow {
-
-    mapping(uint256 => IRentPlatform.RentInfo) public tokenIdToRentInfo;
     
 
     address public _automatedRentalPlatform;
@@ -17,7 +15,7 @@ contract AutomatedRentalEscrow is IAutomatedRentalEscrow {
     
     INonfungiblePositionManager public UniswapNonFungiblePositionManager; 
 
-    mapping(address => mapping(int24 => mapping(int24 => uint256))) public oldPositions;
+    mapping(address => mapping(int24 => mapping(int24 => uint256))) public oldPositions;//addr -> tick lower -> tick upper
 
     constructor(address uniswapNFTPositionManagerAddress, address automatedRentalPlatform, address  owner) { 
         UniswapNonFungiblePositionManager = INonfungiblePositionManager(uniswapNFTPositionManagerAddress);
@@ -47,7 +45,7 @@ contract AutomatedRentalEscrow is IAutomatedRentalEscrow {
 
     function handleNewRental(uint256 tokenId, IRentPlatform.BuyRentalParams memory params, address uniswapPoolAddr, address _renter) external override {
         require(msg.sender == payable(_automatedRentalPlatform),"UNAUTHORIZED ACTION");
-        tokenIdToRentInfo[tokenId] = IRentPlatform.RentInfo({
+         tokenIdToRentInfo[tokenId] = IRentPlatform.RentInfo({
                 originalOwner: payable(address(this)),
                 renter: payable(_renter),
                 tokenId: tokenId,
@@ -117,19 +115,8 @@ contract AutomatedRentalEscrow is IAutomatedRentalEscrow {
 
     }
 
-    function reuseOldPosition(uint256 tokenId, address uniswapPoolAddr, IRentPlatform.BuyRentalParams memory params) external override returns(uint256 amount0, uint256 amount1) {
-        ( ,amount0, amount1) = UniswapNonFungiblePositionManager.increaseLiquidity(
-           INonfungiblePositionManager.IncreaseLiquidityParams({
-            tokenId: tokenId,
-            amount0Desired: params.amount0Desired,
-            amount1Desired: params.amount1Desired,
-            amount0Min: params.amount0Min,
-            amount1Min: params.amount1Min,
-            deadline: params.deadline
-            })
-        );
-
-        oldPositions[uniswapPoolAddr][params.tickLower][params.tickUpper] = 0;
+    function handleReuseOldPosition(uint256 tokenId, address uniswapPoolAddr, IRentPlatform.BuyRentalParams memory params) external override returns(uint256 amount0, uint256 amount1) {
+       oldPositions[uniswapPoolAddr][params.tickLower][params.tickUpper] = 0;
 
     } 
 
@@ -144,6 +131,7 @@ contract AutomatedRentalEscrow is IAutomatedRentalEscrow {
             amount0Max: 1000000000000,
             amount1Max: 1000000000000
          }));
+
 
 
     }
