@@ -99,7 +99,20 @@ contract CaravanRentRouter01 is IRentRouter01 {
 
     }
 
-
+    function sqrtRatioToRatio(uint160 sqrtRatioX96, uint128 baseAmount, address baseToken, address quoteToken) internal pure returns (uint256 quoteAmount) {
+        // Calculate quoteAmount with better precision if it doesn't overflow when multiplied by itself
+        if (sqrtRatioX96 <= type(uint128).max) {
+            uint256 ratioX192 = uint256(sqrtRatioX96) * sqrtRatioX96;
+            quoteAmount = baseToken < quoteToken
+                ? FullMath.mulDiv(ratioX192, baseAmount, 1 << 192)
+                : FullMath.mulDiv(1 << 192, baseAmount, ratioX192);
+        } else {
+            uint256 ratioX128 = FullMath.mulDiv(sqrtRatioX96, sqrtRatioX96, 1 << 64);
+            quoteAmount = baseToken < quoteToken
+                ? FullMath.mulDiv(ratioX128, baseAmount, 1 << 128)
+                : FullMath.mulDiv(1 << 128, baseAmount, ratioX128);
+        }
+    }
 
 
     function test(int24 tickUpper, int24 tickLower, uint256 durationInSeconds, address poolAddr, uint256 amountToken0, uint256 amountToken1) public view returns (PriceInfo memory) {
@@ -173,33 +186,21 @@ contract CaravanRentRouter01 is IRentRouter01 {
    * @param amountToken0 Amount of token0 (as a token0.decimals precision decimal) that should be contained within the rental position in all other cases
    * @param amountToken1 Amount of token1 that should be contained within the rental position if it is out of range and all liquidity is token1
    */
-    function getRentalPrice(int24 tickUpper, int24 tickLower, uint256 durationInSeconds, address poolAddr, uint256 amountToken0, uint256 amountToken1) public view returns (uint256) {
+    function getRentalPrice(uint160 sqrtRatioX96, uint160 sqrtRatioUpperX96, uint160 sqrtRatioLowerX96, uint256 durationInSeconds, uint256 amountToken0, uint256 amountToken1, address poolAddr) public view returns (uint256) {
         //instantiate stuff
-        PriceInfo memory price;
+        PriceInfo memory price;        
         price.uniswapPool = IUniswapV3Pool(poolAddr);
-        if (tickLower <= TickMath.MIN_TICK) {
-            tickLower = TickMath.MIN_TICK;
-        }
-        if (tickUpper >= TickMath.MAX_TICK) {
-            tickUpper = TickMath.MAX_TICK;
-        }
-        //get price from oracle and get each token's decimals
-        (int24 meanTick, ) = OracleLibrary.consult(poolAddr, 60);
-        price.meanTick = meanTick;
         price.token0Decimals = 10**IRentERC20(price.uniswapPool.token0()).decimals();
         price.token1Decimals = 10**IRentERC20(price.uniswapPool.token1()).decimals();
-        
         //calculate price of token1/token0 = price of token 0 in terms of token1
         //calculate price of upper and lower ticks and their mean
-        price.tokenAPrice = OracleLibrary.getQuoteAtTick(meanTick, uint128(price.token0Decimals), price.uniswapPool.token0(), price.uniswapPool.token1()); 
+        price.tokenAPrice = sqrtRatioToRatio(sqrtRatioX96, uint128(price.token0Decimals), price.uniswapPool.token0(), price.uniswapPool.token1());
         price.tokenAPrice = FullMath.mulDiv(PRECISE_UNIT, price.tokenAPrice, price.token1Decimals);
-        price.ratioLower = OracleLibrary.getQuoteAtTick(tickLower, uint128(PRECISE_UNIT), price.uniswapPool.token0(), price.uniswapPool.token1()); 
-        price.ratioUpper = OracleLibrary.getQuoteAtTick(tickUpper, uint128(PRECISE_UNIT), price.uniswapPool.token0(), price.uniswapPool.token1());
+        price.ratioLower = sqrtRatioToRatio(sqrtRatioLowerX96, uint128(PRECISE_UNIT), price.uniswapPool.token0(), price.uniswapPool.token1()); 
+        price.ratioUpper = sqrtRatioToRatio(sqrtRatioUpperX96, uint128(PRECISE_UNIT), price.uniswapPool.token0(), price.uniswapPool.token1());
         price.ratioMid = (price.ratioLower >> 1) + (price.ratioUpper >> 1) + (price.ratioLower & price.ratioUpper & 1);
-        if (price.ratioLower == 0) {
-            price.ratioLower = 1;
-        }
-        if (amountToken1 > 0) {
+        
+        if (price.tokenAPrice >= price.ratioLower && price.tokenAPrice <= price.ratioUpper) {
             amountToken0 += amountToken1.divideDecimalRound(price.tokenAPrice);
         }
         //option price is denominated in token1 and is scaled by amount of token0
@@ -247,6 +248,14 @@ contract CaravanRentRouter01 is IRentRouter01 {
         //require(price > 0, "POSITION TOO SMALL OR TOO FAR OUT OF RANGE");
         require(price <= params.priceMax, "RENTAL PRICE TOO HIGH");
 
+        //ticks must be within max and min tick. Could switch this to require if u want
+        if (tickLower <= TickMath.MIN_TICK) {
+            tickLower = TickMath.MIN_TICK;
+        }
+        if (tickUpper >= TickMath.MAX_TICK) {
+            tickUpper = TickMath.MAX_TICK;
+        }
+
         (int24 meanTick, ) = OracleLibrary.consult(poolAddr, 60);
         price.meanTick = meanTick;
         price.token0Decimals = 10**IRentERC20(price.uniswapPool.token0()).decimals();
@@ -262,6 +271,11 @@ contract CaravanRentRouter01 is IRentRouter01 {
         
        (uint256 actualAmount0, uint256 actualAmount1)  = LiquidityAmounts.getAmountsForLiquidity(sqrtRatioX96, sqrtRatioAX96, sqrtRatioBX96, liquidity);
 
+        //fix the case where tickLower is MIN_TICK
+        if (sqrtRatioAX96 == 0) {
+            sqrtRatioAX96 = 1;
+        }
+        
         require(msg.value >= price, "INSUFFICIENT FUNDS");
 
         require(actualAmount0 >= params.minAmount0 && actualAmount1 >= params.minAmount1, "TOO MUCH SLIPPAGE");
