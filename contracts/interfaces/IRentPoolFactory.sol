@@ -11,6 +11,7 @@ interface IRentPoolFactory {
     function allPoolsLength() external view returns (uint);
 
     function createPool(address uniswapV3Pool) external returns (address rentPool);
+    function drawLiquidity(address token0, address token1, uint256 amount0, uint256 amount1, address to) external;
 
     function setFeeTo(address to) external;
     function setFeeToSetter(address to) external;

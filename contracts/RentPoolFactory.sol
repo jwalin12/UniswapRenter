@@ -16,6 +16,8 @@ contract RentPoolFactory is IRentPoolFactory {
     mapping(address => address) public tokenToPool;
     address[] public allPools;
 
+    address _approvedLiqudityManager;
+
     uint256 public _fee; //fee is divided by 10000, so 2 is 0.02% fee
     uint256 public feesAccrued;
     uint256 public totalFeesAccrued;
@@ -25,7 +27,16 @@ contract RentPoolFactory is IRentPoolFactory {
         feesAccrued += msg.value;
         totalFeesAccrued += msg.value;
 
+    }
 
+
+    function setApprovedLiquidityManager(address newManager) external override {
+        _approvedLiqudityManager = newManager;
+    }
+
+
+    function approvedLiqudityManager() external override view returns (address) {
+        return _approvedLiqudityManager;
     }
 
     function feeTo() external override view returns (address) {
@@ -64,8 +75,21 @@ contract RentPoolFactory is IRentPoolFactory {
         allPools.push(pool);
         console.log("INIT SUCCESFULLY");
         emit PoolCreated(token, pool, allPools.length);
-
     }
+
+
+    function drawLiquidity(address token0, address token1, uint256 amount0, uint256 amount1, address to) external override {
+        require(msg.sender == _approvedLiqudityManager, "UNAUTHORIZED");
+        IRentPool pool0 = tokenToPool[token0]; 
+        require(address(pool0) != address(0), "POOL NOT INITIALIZED");
+        IRentPool pool1 = tokenToPool[token1]; 
+        require(address(pool1) != address(0), "POOL NOT INITIALIZED");
+        pool0.sendLiquidity(amount0, to);
+        pool1.sendLiquidity(amount1, to);
+    }
+
+
+
 
     function setFeeTo(address to) external override  {
         require(msg.sender == _feeToSetter, "UNAUTHORIZED");
