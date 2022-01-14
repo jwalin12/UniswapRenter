@@ -10,7 +10,7 @@ interface IRentPool {
     function getReserves() external view returns (uint112 _reserve, uint256 feesAccrued, uint32 _blockTimestampLast);
     function skim(address to) external;
     function sync() external;
-    function sendLiquidity (address to, uint256 amount) external;
+    function sendLiquidity (uint256 amount, address to) external;
 
 
     

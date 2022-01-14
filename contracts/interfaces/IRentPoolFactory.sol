@@ -19,4 +19,7 @@ interface IRentPoolFactory {
     function setFee(uint256 newFee) external;
     function getFee() external view returns (uint256);
 
+    function setApprovedLiquidityManager(address newManager) external;
+    function approvedLiqudityManager() external returns (address);
+
 }

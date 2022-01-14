@@ -137,7 +137,7 @@ contract RentPool is IRentPool, RentERC20 {
 
 
     // this low-level function should be called from a contract which performs important safety checks
-    function withdrawPremiumFees (address to) external override returns (uint256 amountOfFees) {
+    function withdrawPremiumFees(address to) external override returns (uint256 amountOfFees) {
         (, uint256 feesAccrued,) = _getReserves(); // gas savings
         address _token = token;
         uint liquidity = balanceOf[address(to)];
@@ -149,9 +149,9 @@ contract RentPool is IRentPool, RentERC20 {
         emit WithdrawPremiumFees(to, amountOfFees);
     }
 
-    function sendLiquidity (address to, uint256 amount) external override {
+    function sendLiquidity(uint256 amount, address to) external override {
         require(msg.sender == factory, "UNAPPROVED ACTION");
-        IERC20.transfer(to, amount);
+        IERC20(token).transfer(to, amount);
     }
 
 

@@ -80,9 +80,9 @@ contract RentPoolFactory is IRentPoolFactory {
 
     function drawLiquidity(address token0, address token1, uint256 amount0, uint256 amount1, address to) external override {
         require(msg.sender == _approvedLiqudityManager, "UNAUTHORIZED");
-        IRentPool pool0 = tokenToPool[token0]; 
+        IRentPool pool0 = IRentPool(tokenToPool[token0]); 
         require(address(pool0) != address(0), "POOL NOT INITIALIZED");
-        IRentPool pool1 = tokenToPool[token1]; 
+        IRentPool pool1 =  IRentPool(tokenToPool[token1]); 
         require(address(pool1) != address(0), "POOL NOT INITIALIZED");
         pool0.sendLiquidity(amount0, to);
         pool1.sendLiquidity(amount1, to);

@@ -59,6 +59,12 @@ contract CaravanRentRouter01 is IRentRouter01 {
         int meanTick;
     }
 
+    struct SqrtRatios {
+        uint160 sqrtRatioX96;
+        uint160 sqrtRatioUpperX96;
+        uint160 sqrtRatioLowerX96;
+    }
+
     modifier ensure(uint deadline) {
         require(deadline >= block.timestamp, 'RentRouter: EXPIRED');
         _;
@@ -177,17 +183,17 @@ contract CaravanRentRouter01 is IRentRouter01 {
         return price;
     }
     
-    /**
-   * @dev Returns the price (denominated in token1) of a rental LP with the given params. Mul by priceUSD(token1) to get rental price in USD.
-   * @param tickUpper Upper tick of the range (where ratio is token1/token0)
-   * @param tickLower Lower tick of range
-   * @param durationInSeconds Duration of the rental in seconds
-   * @param poolAddr Address of the Uniswap V3 token0-token1 pool
-   * @param amountToken0 Amount of token0 (as a token0.decimals precision decimal) that should be contained within the rental position in all other cases
-   * @param amountToken1 Amount of token1 that should be contained within the rental position if it is out of range and all liquidity is token1
-   */
-    function getRentalPrice(uint160 sqrtRatioX96, uint160 sqrtRatioUpperX96, uint160 sqrtRatioLowerX96, uint256 durationInSeconds, uint256 amountToken0, uint256 amountToken1, address poolAddr) public view returns (uint256) {
+   
+    function getRentalPrice(SqrtRatios memory ratios,IRentPlatform.BuyRentalParams memory params, address poolAddr) public view returns (uint256) {
         //instantiate stuff
+        uint160 sqrtRatioX96 = ratios.sqrtRatioX96;
+        uint160 sqrtRatioUpperX96 = ratios.sqrtRatioUpperX96;
+        uint160 sqrtRatioLowerX96 = ratios.sqrtRatioLowerX96;
+        uint256 durationInSeconds = params.duration;
+        uint256 amountToken0 = params.amount0Desired;
+        uint256 amountToken1 = params.amount1Desired;
+
+
         PriceInfo memory price;        
         price.uniswapPool = IUniswapV3Pool(poolAddr);
         price.token0Decimals = 10**IRentERC20(price.uniswapPool.token0()).decimals();
@@ -232,73 +238,69 @@ contract CaravanRentRouter01 is IRentRouter01 {
         }
     }
 
+    function getSqrtRatios(IRentPlatform.BuyRentalParams memory params, address poolAddr) public returns (SqrtRatios memory) {
+        (uint160 sqrtRatioX96, , , , , , )  = IUniswapV3Pool(poolAddr).slot0();
+        uint160 sqrtRatioLowerX96 = TickMath.getSqrtRatioAtTick(params.tickLower);
+        uint160 sqrtRatioUpperX96 = TickMath.getSqrtRatioAtTick(params.tickUpper);
+        return SqrtRatios ({
+            sqrtRatioX96: sqrtRatioX96,
+            sqrtRatioLowerX96: sqrtRatioLowerX96,
+            sqrtRatioUpperX96: sqrtRatioUpperX96
+        });
+
+    }
+
+
+
     function buyRental(IRentPlatform.BuyRentalParams memory params) external payable {
         IRentPoolFactory rentPoolFactory = IRentPoolFactory(factory);
         
         //check if enough liquidity is in the pool
-        IRentPool pool0 = rentPoolFactory.getPool(params.token0);
-        IRentPool pool1 = rentPoolFactory.getPool(params.token1);
+        IRentPool pool0 =  IRentPool(rentPoolFactory.getPool(params.token0));
+        IRentPool pool1 =  IRentPool(rentPoolFactory.getPool(params.token1));
         require(params.tickUpper > params.tickLower, "INCORRECT TICKS");
         require(block.timestamp < params.deadline, "DEADLINE PASSED");
         //check if price is right (call get price) and compare to slippage tolerance
         //create rental on existing rent platform
         address poolAddr = uniswapV3Factory.getPool(params.token0, params.token1, params.fee);
         require(poolAddr != address(0), "UNISWAP POOL DOES NOT EXIST");
-        uint256 price = getRentalPrice(params.tickUpper, params.tickLower, params.duration, poolAddr, params.amount0Desired);
+        SqrtRatios memory sqrtRatios = getSqrtRatios(params, poolAddr);
+        
+        
+        //ticks must be within max and min tick. Could switch this to require if u want
+        if (params.tickLower <= TickMath.MIN_TICK) {
+            params.tickLower = TickMath.MIN_TICK;
+        }
+        if (params.tickUpper >= TickMath.MAX_TICK) {
+            params.tickUpper = TickMath.MAX_TICK;
+        }
+
+       (params.amount0Desired, params.amount1Desired) = LiquidityAmounts.getAmountsForLiquidity(sqrtRatios.sqrtRatioX96, sqrtRatios.sqrtRatioLowerX96, sqrtRatios.sqrtRatioUpperX96, LiquidityAmounts.getLiquidityForAmounts(sqrtRatios.sqrtRatioX96,  sqrtRatios.sqrtRatioLowerX96, sqrtRatios.sqrtRatioUpperX96, params.amount0Desired, params.amount1Desired));
+
+        
+
+        require(params.amount0Desired >= params.amount0Min && params.amount1Desired >= params.amount1Min, "TOO MUCH SLIPPAGE");
+
+        uint256 price = getRentalPrice(sqrtRatios, params, poolAddr);
         //require(price > 0, "POSITION TOO SMALL OR TOO FAR OUT OF RANGE");
         require(price <= params.priceMax, "RENTAL PRICE TOO HIGH");
-
-        //ticks must be within max and min tick. Could switch this to require if u want
-        if (tickLower <= TickMath.MIN_TICK) {
-            tickLower = TickMath.MIN_TICK;
-        }
-        if (tickUpper >= TickMath.MAX_TICK) {
-            tickUpper = TickMath.MAX_TICK;
-        }
-
-        (int24 meanTick, ) = OracleLibrary.consult(poolAddr, 60);
-        price.meanTick = meanTick;
-        price.token0Decimals = 10**IRentERC20(price.uniswapPool.token0()).decimals();
-        price.token1Decimals = 10**IRentERC20(price.uniswapPool.token1()).decimals();
-        
-        //calculate price of token1/token0 = price of token 0 in terms of token1
-        //calculate price of upper and lower ticks and their mean
-        uint160 sqrtRatioX96 = OracleLibrary.getQuoteAtTick(meanTick, uint128(price.token0Decimals), price.uniswapPool.token0(), price.uniswapPool.token1()); 
-
-        uint160 sqrtRatioAX96 = OracleLibrary.getQuoteAtTick(tickLower, uint128(PRECISE_UNIT), price.uniswapPool.token0(), price.uniswapPool.token1()); 
-        uint160 sqrtRatioBX96 = OracleLibrary.getQuoteAtTick(tickUpper, uint128(PRECISE_UNIT), price.uniswapPool.token0(), price.uniswapPool.token1());
-        uint128 liquidity = LiquidityAmounts.getLiquidityForAmounts(sqrtRatioX96, sqrtRatioAX96, sqrtRatioBX96, params.amount0Desired, params.amount1Desired);
-        
-       (uint256 actualAmount0, uint256 actualAmount1)  = LiquidityAmounts.getAmountsForLiquidity(sqrtRatioX96, sqrtRatioAX96, sqrtRatioBX96, liquidity);
-
-        //fix the case where tickLower is MIN_TICK
-        if (sqrtRatioAX96 == 0) {
-            sqrtRatioAX96 = 1;
-        }
-        
         require(msg.value >= price, "INSUFFICIENT FUNDS");
 
-        require(actualAmount0 >= params.minAmount0 && actualAmount1 >= params.minAmount1, "TOO MUCH SLIPPAGE");
+        rentPoolFactory.drawLiquidity(params.token0, params.token1, params.amount1Desired, params.amount1Desired, address(rentPlatform));
+       (, uint256 amount0, uint256 amount1) = rentPlatform.createNewRental(params, poolAddr, msg.sender);
 
-        rentPoolFactory.drawLiquidity(token0, token1, actualAmount0, actualAmount0, rentPlatform);
-        
-       (uint256 tokenId, uint256 amount0, uint256 amount1) = rentPlatform.createNewRental(params, poolAddr, msg.sender);
-        require(tokenId != 0, "FAILED TO CREATE RENTAL");
-        console.log("CREATED RENTAL",tokenId);
+        splitFees(pool0, pool1, amount0, amount1, price);
+       
+        //send back dust ETH
+        if (msg.value > price) TransferHelper.safeTransferETH(msg.sender, msg.value - price);
 
-        //TODO: figure out inputs
-        LiquidityAmounts.getLiquidityForAmounts(TickMath.getSqrtRatioAtTick(tick);, sqrtRatioAX96, sqrtRatioBX96, amount0, amount1);
+    }
 
-
-        (uint token0Fee, uint token1Fee) = FeeMath.calculateFeeSplit(pool0, pool1, amount0, amount1, price* (1- premiumFee/10000));
+    function splitFees(IRentPool pool0, IRentPool pool1, uint256 amount0, uint256 amount1, uint256 price) internal {
+         (uint token0Fee, uint token1Fee) = FeeMath.calculateFeeSplit(pool0, pool1, amount0, amount1, price* (1- premiumFee/10000));
         if (token0Fee > 0) TransferHelper.safeTransferETH(address(pool0), token0Fee);
         if (token1Fee > 0) TransferHelper.safeTransferETH(address(pool1), token1Fee);
         if (premiumFee > 0) TransferHelper.safeTransferETH(feeTo, price * premiumFee/10000);
-        //send back dust ETH
-        if (msg.value > price) TransferHelper.safeTransferETH(msg.sender, msg.value - price);
-        if (amount0 < params.amount0Desired) IERC20(params.token0).transferFrom(address(this),address(pool0), params.amount0Desired- amount0);
-        if (amount1 < params.amount1Desired) IERC20(params.token1).transferFrom(address(this), address(pool0), params.amount1Desired- amount1);
-
 
     }
     

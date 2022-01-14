@@ -227,29 +227,98 @@
   {
     "inputs": [
       {
-        "internalType": "int24",
-        "name": "tickUpper",
-        "type": "int24"
+        "components": [
+          {
+            "internalType": "uint160",
+            "name": "sqrtRatioX96",
+            "type": "uint160"
+          },
+          {
+            "internalType": "uint160",
+            "name": "sqrtRatioUpperX96",
+            "type": "uint160"
+          },
+          {
+            "internalType": "uint160",
+            "name": "sqrtRatioLowerX96",
+            "type": "uint160"
+          }
+        ],
+        "internalType": "struct CaravanRentRouter01.SqrtRatios",
+        "name": "ratios",
+        "type": "tuple"
       },
       {
-        "internalType": "int24",
-        "name": "tickLower",
-        "type": "int24"
-      },
-      {
-        "internalType": "uint256",
-        "name": "durationInSeconds",
-        "type": "uint256"
+        "components": [
+          {
+            "internalType": "int24",
+            "name": "tickUpper",
+            "type": "int24"
+          },
+          {
+            "internalType": "int24",
+            "name": "tickLower",
+            "type": "int24"
+          },
+          {
+            "internalType": "uint24",
+            "name": "fee",
+            "type": "uint24"
+          },
+          {
+            "internalType": "uint256",
+            "name": "duration",
+            "type": "uint256"
+          },
+          {
+            "internalType": "uint256",
+            "name": "priceMax",
+            "type": "uint256"
+          },
+          {
+            "internalType": "address",
+            "name": "token0",
+            "type": "address"
+          },
+          {
+            "internalType": "address",
+            "name": "token1",
+            "type": "address"
+          },
+          {
+            "internalType": "uint256",
+            "name": "amount0Desired",
+            "type": "uint256"
+          },
+          {
+            "internalType": "uint256",
+            "name": "amount1Desired",
+            "type": "uint256"
+          },
+          {
+            "internalType": "uint256",
+            "name": "amount0Min",
+            "type": "uint256"
+          },
+          {
+            "internalType": "uint256",
+            "name": "amount1Min",
+            "type": "uint256"
+          },
+          {
+            "internalType": "uint256",
+            "name": "deadline",
+            "type": "uint256"
+          }
+        ],
+        "internalType": "struct IRentPlatform.BuyRentalParams",
+        "name": "params",
+        "type": "tuple"
       },
       {
         "internalType": "address",
         "name": "poolAddr",
         "type": "address"
-      },
-      {
-        "internalType": "uint256",
-        "name": "amountToken0",
-        "type": "uint256"
       }
     ],
     "name": "getRentalPrice",
@@ -261,6 +330,109 @@
       }
     ],
     "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "components": [
+          {
+            "internalType": "int24",
+            "name": "tickUpper",
+            "type": "int24"
+          },
+          {
+            "internalType": "int24",
+            "name": "tickLower",
+            "type": "int24"
+          },
+          {
+            "internalType": "uint24",
+            "name": "fee",
+            "type": "uint24"
+          },
+          {
+            "internalType": "uint256",
+            "name": "duration",
+            "type": "uint256"
+          },
+          {
+            "internalType": "uint256",
+            "name": "priceMax",
+            "type": "uint256"
+          },
+          {
+            "internalType": "address",
+            "name": "token0",
+            "type": "address"
+          },
+          {
+            "internalType": "address",
+            "name": "token1",
+            "type": "address"
+          },
+          {
+            "internalType": "uint256",
+            "name": "amount0Desired",
+            "type": "uint256"
+          },
+          {
+            "internalType": "uint256",
+            "name": "amount1Desired",
+            "type": "uint256"
+          },
+          {
+            "internalType": "uint256",
+            "name": "amount0Min",
+            "type": "uint256"
+          },
+          {
+            "internalType": "uint256",
+            "name": "amount1Min",
+            "type": "uint256"
+          },
+          {
+            "internalType": "uint256",
+            "name": "deadline",
+            "type": "uint256"
+          }
+        ],
+        "internalType": "struct IRentPlatform.BuyRentalParams",
+        "name": "params",
+        "type": "tuple"
+      },
+      {
+        "internalType": "address",
+        "name": "poolAddr",
+        "type": "address"
+      }
+    ],
+    "name": "getSqrtRatios",
+    "outputs": [
+      {
+        "components": [
+          {
+            "internalType": "uint160",
+            "name": "sqrtRatioX96",
+            "type": "uint160"
+          },
+          {
+            "internalType": "uint160",
+            "name": "sqrtRatioUpperX96",
+            "type": "uint160"
+          },
+          {
+            "internalType": "uint160",
+            "name": "sqrtRatioLowerX96",
+            "type": "uint160"
+          }
+        ],
+        "internalType": "struct CaravanRentRouter01.SqrtRatios",
+        "name": "",
+        "type": "tuple"
+      }
+    ],
+    "stateMutability": "nonpayable",
     "type": "function"
   },
   {
@@ -656,6 +828,11 @@
       {
         "internalType": "uint256",
         "name": "amountToken0",
+        "type": "uint256"
+      },
+      {
+        "internalType": "uint256",
+        "name": "amountToken1",
         "type": "uint256"
       }
     ],
