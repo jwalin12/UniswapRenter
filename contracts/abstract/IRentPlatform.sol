@@ -7,8 +7,8 @@ abstract contract IRentPlatform {
         int24 tickUpper;
         int24 tickLower;
         uint24 fee;
-        uint256 duration;
-        uint256 priceMax;
+        uint256 duration; //need to add date picker on FE or smth
+        uint256 priceMax; 
         address token0;
         address token1;
         uint256 amount0Desired;

@@ -118,6 +118,20 @@ contract CaravanRentRouter01 is IRentRouter01 {
         price.rate = optionGreekCache.getRiskFreeRate();
         if (price.ratioLower == 0) {
             price.ratioLower = 1;
+        } 
+        //real reserves: ( x_r + L / sqrt(p_b) ) * ( y_r + L * sqrt(p_a) ) = L^2
+        
+        // virtual reserves:
+        // L = sqrt(x * y)
+        // sqrt(p) = sqrt(y / x)
+        // x = L / sqrt(p)
+        // y = L * sqrt(p)
+        // L = uint128 liquidity
+        // sqrt(p) = uint160 sqrtPriceX96
+        // 
+        //if price is out of range below, all tokens should be token0
+        if (price.tokenAPrice < price.ratioLower) {
+            // do nothing, just ignore amountToken1
         }
         if (amountToken0 == 0) {
             amountToken0 = amountToken1.divideDecimalRound(price.tokenAPrice);
