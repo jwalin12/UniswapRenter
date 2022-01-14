@@ -51,24 +51,7 @@ describe("Router", async () => {
         console.log("Router contract deployed to:", router.address);
     });
 
-    // it("should be able to get price data", async() => {
-    //     try {
-    //         const lowerTick = -81609; //81609; // ETH/USDC = $3500 per ETH = 3499.90807274
-    //         const upperTick = -82944; //82944; // ETH/USDC = $4000 per ETH = 3999.74267845
-    //         const yearInSeconds = 31556926; // # of secs per year
-    //         let rentalPrice = await router.getRentalPrice(lowerTick, upperTick, yearInSeconds, "0x8ad599c3a0ff1de082011efddc58f1908eb6e6d8", BigInt(100*1000000));
-    //         console.log(rentalPrice);
-    //     } catch (e) {
-    //         if (e != null) {
-    //             console.log(e);
-    //             console.log("Error when getting price data");
-    //         }
-    //         expect(e == null, "error %v", e);
-    //     }            
-        
-    // });
-
-    it("should be able to not return zero price", async() => {
+    it("should be able to get price data", async() => {
         try {
             const poolContract = await new ethers.Contract(
                 "0xc2e9f25be6257c210d7adf0d4cd6e3e881ba25f8",
@@ -76,12 +59,31 @@ describe("Router", async () => {
                 provider
             );
             greekCache.connect(account).setPoolAddressToVol("0xc2e9f25be6257c210d7adf0d4cd6e3e881ba25f8", BigInt(.94*PRECISE_UNIT));
-            const lowerTick = -887272; //81609; // ETH/USDC = $3500 per ETH = 3499.90807274
-            const upperTick = 887272; //82944; // ETH/USDC = $4000 per ETH = 3999.74267845
+            const daiAddr = "0x6B175474E89094C44Da98b954EedeAC495271d0F";
+            const WethAddr = "0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2" ;
+            const blockNumber = await provider.getBlockNumber();
+            const block = await provider.getBlock(blockNumber);
+            const timestamp = block.timestamp;
+            const lowerTick = -82944; //81609; // ETH/USDC = $3500 per ETH = 3499.90807274
+            const upperTick = -81609; //82944; // ETH/USDC = $4000 per ETH = 3999.74267845
             const yearInSeconds = 31556926; // # of secs per year
-            const durationInSeconds = 10000;
-            let rentalPrice = await router.test(upperTick, lowerTick, durationInSeconds, "0xc2e9f25be6257c210d7adf0d4cd6e3e881ba25f8", BigInt(1000000000000000000));
-            console.log("The rental price should NOT be zero: see below")
+            const duration = yearInSeconds;
+            rentalParams = {
+                tickUpper: upperTick,
+                tickLower: lowerTick,
+                fee: 3000,
+                duration: duration,
+                priceMax: 10000000000000,
+                token0: daiAddr,
+                token1: WethAddr,
+                amount0Desired: ethers.utils.parseEther("0.000001"),
+                amount1Desired: ethers.utils.parseEther("0"),
+                amount0Min: ethers.utils.parseEther("0.000001"),
+                amount1Min: ethers.utils.parseEther("0"),
+                deadline: timestamp + duration
+            }
+            console.log("Rental Params:", rentalParams)
+            let rentalPrice = await router.quoteRental(rentalParams);
             console.log(rentalPrice);
         } catch (e) {
             if (e != null) {
@@ -92,6 +94,48 @@ describe("Router", async () => {
         }            
         
     });
+
+    // it("should be able to not return zero price", async() => {
+    //     try {
+    //         const poolContract = await new ethers.Contract(
+    //             "0xc2e9f25be6257c210d7adf0d4cd6e3e881ba25f8",
+    //             v3PoolABI,
+    //             provider
+    //         );
+    //         greekCache.connect(account).setPoolAddressToVol("0xc2e9f25be6257c210d7adf0d4cd6e3e881ba25f8", BigInt(.94*PRECISE_UNIT));
+    //         const lowerTick = -887272; //81609; // ETH/USDC = $3500 per ETH = 3499.90807274
+    //         const upperTick = 887272; //82944; // ETH/USDC = $4000 per ETH = 3999.74267845
+    //         const daiAddr = "0x6B175474E89094C44Da98b954EedeAC495271d0F";
+    //         const WethAddr = "0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2" ;
+    //         const blockNumber = await provider.getBlockNumber();
+    //         const block = await provider.getBlock(blockNumber);
+    //         const timestamp = block.timestamp;
+    //         const duration = 10000;
+    //         rentalParams = {
+    //             tickUpper: upperTick,
+    //             tickLower: lowerTick,
+    //             fee: 3000,
+    //             duration: duration,
+    //             priceMax: 10000000000000,
+    //             token0: daiAddr,
+    //             token1: WethAddr,
+    //             amount0Desired: ethers.utils.parseEther("0.000001"),
+    //             amount1Desired: ethers.utils.parseEther("0"),
+    //             amount0Min: ethers.utils.parseEther("0.000001"),
+    //             amount1Min: ethers.utils.parseEther("0"),
+    //             deadline: timestamp + duration
+    //         }
+    //         let rentalPrice = await router.connect(account).quoteRental(rentalParams, { value: ethers.utils.parseEther('1') });
+    //         console.log(rentalPrice);
+    //     } catch (e) {
+    //         if (e != null) {
+    //             console.log(e);
+    //             console.log("Error when getting price data");
+    //         }
+    //         expect(e == null, "error %v", e);
+    //     }            
+        
+    // });
 
 
     // it("should be able to get price data", async() => {
