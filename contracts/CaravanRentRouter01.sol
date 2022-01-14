@@ -102,7 +102,7 @@ contract CaravanRentRouter01 is IRentRouter01 {
 
 
 
-    function test(int24 tickUpper, int24 tickLower, uint256 durationInSeconds, address poolAddr, uint256 amountToken0) public view returns (PriceInfo memory) {
+    function test(int24 tickUpper, int24 tickLower, uint256 durationInSeconds, address poolAddr, uint256 amountToken0, uint256 amountToken1) public view returns (PriceInfo memory) {
         PriceInfo memory price;
         price.uniswapPool = IUniswapV3Pool(poolAddr);
         (int24 meanTick, ) = OracleLibrary.consult(poolAddr, 60);
@@ -117,6 +117,12 @@ contract CaravanRentRouter01 is IRentRouter01 {
         price.ratioMid = (price.ratioLower >> 1) + (price.ratioUpper >> 1) + (price.ratioLower & price.ratioUpper & 1);
         price.vol = optionGreekCache.getVol(poolAddr);
         price.rate = optionGreekCache.getRiskFreeRate();
+        if (price.ratioLower == 0) {
+            price.ratioLower = 1;
+        }
+        if (amountToken0 == 0) {
+            amountToken0 = amountToken1.divideDecimalRound(price.tokenAPrice);
+        }
         //option price is denominated in token1 and is scaled by amount of token0
         //since its denominated in token1, need to divide by token1 decimals to get actual number
         IBlackScholes.PricesDeltaStdVega memory optionPrices;
@@ -150,21 +156,19 @@ contract CaravanRentRouter01 is IRentRouter01 {
    * @param tickLower Lower tick of range
    * @param durationInSeconds Duration of the rental in seconds
    * @param poolAddr Address of the Uniswap V3 token0-token1 pool
-   * @param amountToken0 Amount of token0 (as a token0.decimals precision decimal) that should be contained within the rental position
+   * @param amountToken0 Amount of token0 (as a token0.decimals precision decimal) that should be contained within the rental position in all other cases
+   * @param amountToken1 Amount of token1 that should be contained within the rental position if it is out of range and all liquidity is token1
    */
-    function getRentalPrice(int24 tickUpper, int24 tickLower, uint256 durationInSeconds, address poolAddr, uint256 amountToken0) public view returns (uint256) {
+    function getRentalPrice(int24 tickUpper, int24 tickLower, uint256 durationInSeconds, address poolAddr, uint256 amountToken0, uint256 amountToken1) public view returns (uint256) {
         //instantiate stuff
         PriceInfo memory price;
-        //TODO: fix minTick stuff
         price.uniswapPool = IUniswapV3Pool(poolAddr);
         if (tickLower <= TickMath.MIN_TICK) {
-            console.log(tickLower == 0);
-            tickLower = 1;
+            tickLower = TickMath.MIN_TICK;
         }
         if (tickUpper >= TickMath.MAX_TICK) {
             tickUpper = TickMath.MAX_TICK;
         }
-
         //get price from oracle and get each token's decimals
         (int24 meanTick, ) = OracleLibrary.consult(poolAddr, 60);
         price.meanTick = meanTick;
@@ -175,13 +179,15 @@ contract CaravanRentRouter01 is IRentRouter01 {
         //calculate price of upper and lower ticks and their mean
         price.tokenAPrice = OracleLibrary.getQuoteAtTick(meanTick, uint128(price.token0Decimals), price.uniswapPool.token0(), price.uniswapPool.token1()); 
         price.tokenAPrice = FullMath.mulDiv(PRECISE_UNIT, price.tokenAPrice, price.token1Decimals);
-        console.log(price.tokenAPrice);
         price.ratioLower = OracleLibrary.getQuoteAtTick(tickLower, uint128(PRECISE_UNIT), price.uniswapPool.token0(), price.uniswapPool.token1()); 
-        console.log(price.ratioLower);
         price.ratioUpper = OracleLibrary.getQuoteAtTick(tickUpper, uint128(PRECISE_UNIT), price.uniswapPool.token0(), price.uniswapPool.token1());
-        console.log(price.ratioUpper);
         price.ratioMid = (price.ratioLower >> 1) + (price.ratioUpper >> 1) + (price.ratioLower & price.ratioUpper & 1);
-        
+        if (price.ratioLower == 0) {
+            price.ratioLower = 1;
+        }
+        if (amountToken1 > 0) {
+            amountToken0 += amountToken1.divideDecimalRound(price.tokenAPrice);
+        }
         //option price is denominated in token1 and is scaled by amount of token0
         //since its denominated in token1, need to divide by token1 decimals to get actual number
         //and need to multiply by price of token1 in USD to get rental price in USD
