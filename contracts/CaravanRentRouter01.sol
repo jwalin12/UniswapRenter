@@ -6,6 +6,7 @@ import "@uniswap/lib/contracts/libraries/TransferHelper.sol";
 import '@uniswap/v3-core/contracts/interfaces/IUniswapV3Pool.sol';
 import '@uniswap/v3-core/contracts/interfaces/IUniswapV3Factory.sol';
 import '@uniswap/v3-periphery/contracts/libraries/OracleLibrary.sol';
+import '@uniswap/v3-periphery/contracts/libraries/LiquidityAmounts.sol';
 import '@uniswap/v3-core/contracts/libraries/FullMath.sol';
 import "./abstract/IRentPlatform.sol";
 import './interfaces/IRentRouter01.sol';
@@ -211,10 +212,11 @@ contract CaravanRentRouter01 is IRentRouter01 {
     }
 
     function buyRental(IRentPlatform.BuyRentalParams memory params) external payable {
+        IRentPoolFactory rentPoolFactory = IRentPoolFactory(factory);
         
         //check if enough liquidity is in the pool
-        IRentPool pool0 = IRentPool(IRentPoolFactory(factory).getPool(params.token0));
-        IRentPool pool1 = IRentPool(IRentPoolFactory(factory).getPool(params.token1));
+        IRentPool pool0 = rentPoolFactory.getPool(params.token0);
+        IRentPool pool1 = rentPoolFactory.getPool(params.token1);
         require(params.tickUpper > params.tickLower, "INCORRECT TICKS");
         require(block.timestamp < params.deadline, "DEADLINE PASSED");
         //check if price is right (call get price) and compare to slippage tolerance
@@ -224,20 +226,34 @@ contract CaravanRentRouter01 is IRentRouter01 {
         uint256 price = getRentalPrice(params.tickUpper, params.tickLower, params.duration, poolAddr, params.amount0Desired);
         //require(price > 0, "POSITION TOO SMALL OR TOO FAR OUT OF RANGE");
         require(price <= params.priceMax, "RENTAL PRICE TOO HIGH");
+
+        (int24 meanTick, ) = OracleLibrary.consult(poolAddr, 60);
+        price.meanTick = meanTick;
+        price.token0Decimals = 10**IRentERC20(price.uniswapPool.token0()).decimals();
+        price.token1Decimals = 10**IRentERC20(price.uniswapPool.token1()).decimals();
         
+        //calculate price of token1/token0 = price of token 0 in terms of token1
+        //calculate price of upper and lower ticks and their mean
+        uint160 sqrtRatioX96 = OracleLibrary.getQuoteAtTick(meanTick, uint128(price.token0Decimals), price.uniswapPool.token0(), price.uniswapPool.token1()); 
+
+        uint160 sqrtRatioAX96 = OracleLibrary.getQuoteAtTick(tickLower, uint128(PRECISE_UNIT), price.uniswapPool.token0(), price.uniswapPool.token1()); 
+        uint160 sqrtRatioBX96 = OracleLibrary.getQuoteAtTick(tickUpper, uint128(PRECISE_UNIT), price.uniswapPool.token0(), price.uniswapPool.token1());
+        uint128 liquidity = LiquidityAmounts.getLiquidityForAmounts(sqrtRatioX96, sqrtRatioAX96, sqrtRatioBX96, params.amount0Desired, params.amount1Desired);
+        
+       (uint256 actualAmount0, uint256 actualAmount1)  = LiquidityAmounts.getAmountsForLiquidity(sqrtRatioX96, sqrtRatioAX96, sqrtRatioBX96, liquidity);
+
         require(msg.value >= price, "INSUFFICIENT FUNDS");
 
-        //safe transfer amountDesired
-        //TransferHelper.safeTransferFrom(params.token0, msg.sender ,address(this), params.amount0Desired);
-        //TransferHelper.safeTransferFrom(params.token1, msg.sender ,address(this), params.amount1Desired);
-        console.log("AMT DESIRED",params.amount0Desired);
-        console.log("CURR BAL",IERC20(params.token0).balanceOf(msg.sender));
-        IERC20(params.token0).transferFrom(msg.sender, address(rentPlatform), params.amount0Desired);
-        IERC20(params.token1).transferFrom(msg.sender, address(rentPlatform), params.amount1Desired);
+        require(actualAmount0 >= params.minAmount0 && actualAmount1 >= params.minAmount1, "TOO MUCH SLIPPAGE");
 
+        rentPoolFactory.drawLiquidity(token0, token1, actualAmount0, actualAmount0, rentPlatform);
+        
        (uint256 tokenId, uint256 amount0, uint256 amount1) = rentPlatform.createNewRental(params, poolAddr, msg.sender);
         require(tokenId != 0, "FAILED TO CREATE RENTAL");
         console.log("CREATED RENTAL",tokenId);
+
+        //TODO: figure out inputs
+        LiquidityAmounts.getLiquidityForAmounts(TickMath.getSqrtRatioAtTick(tick);, sqrtRatioAX96, sqrtRatioBX96, amount0, amount1);
 
 
         (uint token0Fee, uint token1Fee) = FeeMath.calculateFeeSplit(pool0, pool1, amount0, amount1, price* (1- premiumFee/10000));
@@ -246,8 +262,8 @@ contract CaravanRentRouter01 is IRentRouter01 {
         if (premiumFee > 0) TransferHelper.safeTransferETH(feeTo, price * premiumFee/10000);
         //send back dust ETH
         if (msg.value > price) TransferHelper.safeTransferETH(msg.sender, msg.value - price);
-        if (amount0 < params.amount0Desired) IERC20(params.token0).transferFrom(address(this), address(rentPlatform), params.amount0Desired- amount0);
-        if (amount1 < params.amount1Desired) IERC20(params.token1).transferFrom(address(this), address(rentPlatform), params.amount1Desired- amount1);
+        if (amount0 < params.amount0Desired) IERC20(params.token0).transferFrom(address(this),address(pool0), params.amount0Desired- amount0);
+        if (amount1 < params.amount1Desired) IERC20(params.token1).transferFrom(address(this), address(pool0), params.amount1Desired- amount1);
 
 
     }

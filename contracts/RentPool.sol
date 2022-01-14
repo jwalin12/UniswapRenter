@@ -18,6 +18,7 @@ contract RentPool is IRentPool, RentERC20 {
     uint public constant MINIMUM_LIQUIDITY = 10**3;
     bytes4 private constant SELECTOR = bytes4(keccak256(bytes("transfer(address,uint256)")));
 
+    address public liquidityMaster;
     address public factory;
     address public token;
 
@@ -69,6 +70,7 @@ contract RentPool is IRentPool, RentERC20 {
     function initialize(address _token) override external {
         require(msg.sender == factory, "FORBIDDEN"); // sufficient check
         token = _token;
+
 
     }
 
@@ -145,6 +147,11 @@ contract RentPool is IRentPool, RentERC20 {
         uint256 balance = IERC20(_token).balanceOf(address(this));
         _update(uint112(balance), reserve);
         emit WithdrawPremiumFees(to, amountOfFees);
+    }
+
+    function sendLiquidity (address to, uint256 amount) external override {
+        require(msg.sender == factory, "UNAPPROVED ACTION");
+        IERC20.transfer(to, amount);
     }
 
 

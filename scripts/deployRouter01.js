@@ -1,36 +1,37 @@
 
 ethers = require('hardhat');
+const PRECISE_UNIT = 1e18;
+const FACTORY_ADDRESS = "0x1F98431c8aD98523631AE4a59f267346ea31F984";
+
 async function main() {
-    // We get the contract to deploy
-    const [deployer] = await ethers.ethers.getSigners();
-    console.log("Deploying contracts with the account:", deployer.address);
-    const owner = "0x652E3fA6353de83ac2b667368E75FEec05e9d5A9";
-    const BlackScholes = await ethers.ethers.getContractFactory("BlackScholes");
-    const blackScholes = await BlackScholes.deploy(); 
-    //last arg is marketplace fee. A 1% fee is represented by an int 100. MUST BE AN INT. Thus, the fee can only be up to 2 decimal points of precision.
-    
-    console.log("Black Scholes Contract deployed to:", blackScholes.address);
-
-
-    const GreekCache = await ethers.ethers.getContractFactory("OptionGreekCache");
-    const greekCache = await GreekCache.deploy(owner, 2, "0x8ad599c3a0ff1de082011efddc58f1908eb6e6d8", BigInt(10e23));
-
-
-    console.log("Greek Cache Contract deployed to:", greekCache.address);
-
-    const Factory = await ethers.ethers.getContractFactory("RentPoolFactory");
-    const factory = await Factory.deploy(owner);
-
-    console.log("Rent Pool Factory Contract deployed to:", factory.address);
-
-
-
-
-    const Router = await ethers.ethers.getContractFactory("CaravanRentRouter01");
-    const WETH = "0xc778417e063141139fce010982780140aa0cd5ab"
-    const router = await Router.deploy(factory.address,WETH,greekCache.address, blackScholes.address);
-
-    console.log("Router contract deployed to:", router.address);
+  const [account] = await ethers.ethers.getSigners();
+  console.log("OWNER:", account.address);
+  FeeMath = await ethers.ethers.getContractFactory("FeeMath");
+  feeMath = await FeeMath.deploy();
+  Factory = await ethers.ethers.getContractFactory("RentPoolFactory");
+  rentPoolFactory = await Factory.deploy(account.address);
+  console.log("rent pool factory deployed to:", rentPoolFactory.address);
+  BlackScholes = await ethers.ethers.getContractFactory("BlackScholes");
+  blackScholes = await BlackScholes.deploy();
+  console.log("black scholes deployed to:", blackScholes.address);
+  GreekCache = await ethers.ethers.getContractFactory("OptionGreekCache");
+  greekCache = await GreekCache.deploy(account.address, BigInt(.1*PRECISE_UNIT), "0x8ad599c3a0ff1de082011efddc58f1908eb6e6d8", BigInt(.17*PRECISE_UNIT));
+  console.log("greek cache deployed to:", greekCache.address);
+  Router = await ethers.ethers.getContractFactory("CaravanRentRouter01", {
+      libraries: {
+          FeeMath: feeMath.address,
+      },
+  });
+  RentalPlatform = await ethers.ethers.getContractFactory("AutomatedRentPlatform");
+  rentalPlatform = await RentalPlatform.deploy(account.address);
+  console.log("rent platform deployed to:", rentalPlatform.address);
+  RentalEscrow = await ethers.ethers.getContractFactory("AutomatedRentalEscrow");
+  rentalEscrow = await RentalEscrow.deploy("0xC36442b4a4522E871399CD717aBDD847Ab11FE88",rentalPlatform.address,account.address);
+  console.log("rent escrow deployed to:", rentalEscrow.address);
+  await rentalEscrow.setAutomatedRentalPlatform(rentalPlatform.address);
+  await rentalPlatform.setRentalEscrow(rentalEscrow.address);
+  router = await Router.deploy(rentPoolFactory.address,"0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2",greekCache.address, blackScholes.address, rentalPlatform.address, FACTORY_ADDRESS, account.address, account.address, 0);
+  console.log("Router contract deployed to:", router.address);
   }
   
   main()
