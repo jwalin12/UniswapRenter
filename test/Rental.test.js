@@ -166,6 +166,7 @@ describe("Router", () => {
         await WethContract.connect(account).approve(router.address, ethers.utils.parseEther('20'));
         // await router.addLiquidityETH(ethers.utils.parseEther('10'), ethers.utils.parseEther('0'), account.address, ethers.BigNumber.from(deadline),{ value: ethers.utils.parseEther('10') });
         // await router.addLiquidity(daiAddr, ethers.utils.parseEther('10'), ethers.utils.parseEther('0'), account.address, ethers.BigNumber.from(deadline)); 
+        
         await router.connect(account).buyRental(rentalParams, { value: ethers.utils.parseEther('1') });
         daiPoolAddr = await rentPoolFactory.getPool(daiAddr);
         daiRentPool = await new ethers.Contract(daiPoolAddr, rentPoolABI, provider);
