@@ -285,7 +285,6 @@ contract CaravanRentRouter01 is IRentRouter01 {
         require(poolAddr != address(0), "UNISWAP POOL DOES NOT EXIST");
         SqrtRatios memory sqrtRatios = getSqrtRatios(params, poolAddr);
         
-        
         //ticks must be within max and min tick. Could switch this to require if u want
         if (params.tickLower <= TickMath.MIN_TICK) {
             params.tickLower = TickMath.MIN_TICK;
@@ -297,7 +296,8 @@ contract CaravanRentRouter01 is IRentRouter01 {
        (params.amount0Desired, params.amount1Desired) = LiquidityAmounts.getAmountsForLiquidity(sqrtRatios.sqrtRatioX96, sqrtRatios.sqrtRatioLowerX96, sqrtRatios.sqrtRatioUpperX96, LiquidityAmounts.getLiquidityForAmounts(sqrtRatios.sqrtRatioX96,  sqrtRatios.sqrtRatioLowerX96, sqrtRatios.sqrtRatioUpperX96, params.amount0Desired, params.amount1Desired));
 
         
-
+        console.log("amount0 actual", params.amount0Desired >= params.amount0Min);
+        console.log("amount1 actual", params.amount1Desired >= params.amount1Min);
         require(params.amount0Desired >= params.amount0Min && params.amount1Desired >= params.amount1Min, "TOO MUCH SLIPPAGE");
 
         uint256 price = getRentalPrice(sqrtRatios, params, poolAddr);
@@ -305,7 +305,10 @@ contract CaravanRentRouter01 is IRentRouter01 {
         require(price <= params.priceMax, "RENTAL PRICE TOO HIGH");
         require(msg.value >= price, "INSUFFICIENT FUNDS");
 
-        rentPoolFactory.drawLiquidity(params.token0, params.token1, params.amount1Desired, params.amount1Desired, address(rentPlatform));
+        IERC20(params.token0).approve(address(rentPlatform), params.amount0Desired);
+        IERC20(params.token1).approve(address(rentPlatform), params.amount0Desired);
+
+        rentPoolFactory.drawLiquidity(params.token0, params.token1, params.amount0Desired, params.amount1Desired, address(rentPlatform));
        (, uint256 amount0, uint256 amount1) = rentPlatform.createNewRental(params, poolAddr, msg.sender);
 
         splitFees(pool0, pool1, amount0, amount1, price);

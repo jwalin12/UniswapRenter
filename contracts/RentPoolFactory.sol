@@ -31,6 +31,7 @@ contract RentPoolFactory is IRentPoolFactory {
 
 
     function setApprovedLiquidityManager(address newManager) external override {
+        require(_approvedLiqudityManager == address(0) || msg.sender == _approvedLiqudityManager, "UNAUTHORIZED");
         _approvedLiqudityManager = newManager;
     }
 

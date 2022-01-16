@@ -68,6 +68,9 @@ contract AutomatedRentPlatform is IRentPlatform  {
                 console.log("minting new pos...");
                 console.log(msg.sender);
                 INonfungiblePositionManager posManager = INonfungiblePositionManager(IAutomatedRentalEscrow(_rentalEscrow).getUniswapPositionManager());
+                console.log(IERC20(params.token0).balanceOf(address(this)) >  params.amount0Desired);
+                console.log(IERC20(params.token1).balanceOf(address(this)) > params.amount1Desired);
+
                 TransferHelper.safeApprove(params.token0, address(posManager),  params.amount0Desired);
                 TransferHelper.safeApprove(params.token1, address(posManager),  params.amount1Desired);
                 INonfungiblePositionManager.MintParams memory mintParams = INonfungiblePositionManager.MintParams({
