@@ -320,7 +320,7 @@ contract CaravanRentRouter01 is IRentRouter01 {
         require(params.amount0Desired >= params.amount0Min && params.amount1Desired >= params.amount1Min, "TOO MUCH SLIPPAGE");
 
         uint256 price = getRentalPrice(sqrtRatios, params, poolAddr);
-        //require(price > 0, "POSITION TOO SMALL OR TOO FAR OUT OF RANGE");
+        require(price > 0, "POSITION TOO SMALL OR TOO FAR OUT OF RANGE");
         require(price <= params.priceMax, "RENTAL PRICE TOO HIGH");
         require(msg.value >= price, "INSUFFICIENT FUNDS");
 

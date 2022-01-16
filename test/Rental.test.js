@@ -14,6 +14,7 @@ let greekCache;
 let provider;
 let deadline;
 let rentalParams;
+
 let tokenId;
 let poolContract;
 let swapRouter;
@@ -22,8 +23,13 @@ let account;
 let wethPoolAddr;
 let daiPoolAddr;
 
-const lowerTick = -82944; //81609; // ETH/USDC = $3500 per ETH = 3499.90807274
-const upperTick = -81609; //82944; // ETH/USDC = $4000 per ETH = 3999.74267845
+const lowerTick = -82920; //81609; // ETH/USDC = $3500 per ETH = 3499.90807274
+const upperTick = 60; //82944; // ETH/USDC = $4000 per ETH = 3999.74267845
+
+
+
+
+
 
 
 const FACTORY_ADDRESS = "0x1F98431c8aD98523631AE4a59f267346ea31F984";
@@ -154,17 +160,12 @@ describe("Router", () => {
     });
 
 
-    it("should add liquidity to both pools", async () => {
+    it("should be able to buy a rental ", async () => {
         blockNumber = await provider.getBlockNumber();
         block = await provider.getBlock(blockNumber);
         timestamp = block.timestamp;
         deadline = timestamp + 864000;
-        
-
-        poolSlot0 = await poolContract.slot0();
-        console.log("TOKEN0:",await poolContract.token0());
-        await console.log("DAI BAL", DaiContract.balanceOf(account.address) > ethers.utils.parseEther("1") );
-        rentalParams = {
+        rentalParams  = {
             tickUpper: upperTick,
             tickLower: lowerTick,
             fee: 3000,
@@ -177,8 +178,14 @@ describe("Router", () => {
             amount0Min: ethers.utils.parseEther("0"),
             amount1Min: ethers.utils.parseEther("0"),
             deadline: deadline
+        
+        };
+        
 
-        }
+        poolSlot0 = await poolContract.slot0();
+        console.log("TOKEN0:",await poolContract.token0());
+        await console.log("DAI BAL", DaiContract.balanceOf(account.address) > ethers.utils.parseEther("1") );
+
         // await DaiContract.connect(account).approve(router.address, ethers.utils.parseEther('20'));
         // await WethContract.connect(account).approve(router.address, ethers.utils.parseEther('20'));
         // await router.addLiquidityETH(ethers.utils.parseEther('10'), ethers.utils.parseEther('0'), account.address, ethers.BigNumber.from(deadline),{ value: ethers.utils.parseEther('10') });
@@ -191,7 +198,7 @@ describe("Router", () => {
 
     });
 
-    it("should create a rental", async () => {
+    it("should create a rental and position", async () => {
         tokenId = await rentalPlatform.rentalsInProgress(0)
         expect(tokenId !=0, "rental not created");
         rentInfoParams = rentalPlatform.getRentalInfoParams(tokenId)
@@ -263,6 +270,8 @@ describe("Router", () => {
         expect(rentInfoParams[4] == poolContract.address, "INCORRECT V3 POOL");
         expect(rentInfoParams[2] == tokenId, "TokenIds do not match up!");
     });
+
+
 
     
 
