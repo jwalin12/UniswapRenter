@@ -67,12 +67,16 @@ contract AutomatedRentPlatform is IRentPlatform  {
             else {
                 console.log("minting new pos...");
                 console.log(msg.sender);
-                INonfungiblePositionManager posManager = INonfungiblePositionManager(IAutomatedRentalEscrow(_rentalEscrow).getUniswapPositionManager());
-                console.log(IERC20(params.token0).balanceOf(address(this)) >  params.amount0Desired);
-                console.log(IERC20(params.token1).balanceOf(address(this)) > params.amount1Desired);
+                address posManagerAddr = IAutomatedRentalEscrow(_rentalEscrow).getUniswapPositionManager();
+                console.log(IERC20(params.token0).balanceOf(address(this)) >= params.amount0Desired);
+                console.log(IERC20(params.token1).balanceOf(address(this)) >= params.amount1Desired);
+                console.log("AMT0BAL at platform",IERC20(params.token0).balanceOf(address(this))  );
+                console.log("AMT1BAL at platform",IERC20(params.token1).balanceOf(address(this))  );
+                console.log("AMT0DESIRED", params.amount0Desired);
+                console.log("AMT1DESIRED", params.amount1Desired);
+                TransferHelper.safeApprove(params.token0, posManagerAddr,  params.amount0Desired);
+                TransferHelper.safeApprove(params.token1, posManagerAddr,  params.amount1Desired);
 
-                TransferHelper.safeApprove(params.token0, address(posManager),  params.amount0Desired);
-                TransferHelper.safeApprove(params.token1, address(posManager),  params.amount1Desired);
                 INonfungiblePositionManager.MintParams memory mintParams = INonfungiblePositionManager.MintParams({
                 token0: params.token0,
                 token1: params.token1,
@@ -86,8 +90,8 @@ contract AutomatedRentPlatform is IRentPlatform  {
                 amount1Min: params.amount1Min,
                 deadline: params.deadline
                 });
-                (tokenId, , amount0, amount1) = posManager.mint(mintParams);
-                
+                console.log("Amount1Min", params.amount1Min <= params.amount1Desired);
+                (tokenId, ,amount0, amount1) = INonfungiblePositionManager(posManagerAddr).mint(mintParams);                
                 // TransferHelper.safeApprove(token, to, value);
                 //(bool success, bytes memory result) = address(posManager).delegatecall(abi.encodeWithSignature("mint(MintParams calldata params)", mintParams));
                 //console.log("minted pos", success);
@@ -97,6 +101,8 @@ contract AutomatedRentPlatform is IRentPlatform  {
 
 
             }
+
+
             rentalsInProgress.push(tokenId);
            IAutomatedRentalEscrow(_rentalEscrow).handleNewRental(tokenId, params,uniswapPoolAddr, _renter);
     }

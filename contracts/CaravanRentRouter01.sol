@@ -202,6 +202,9 @@ contract CaravanRentRouter01 is IRentRouter01 {
         price.tokenAPrice = FullMath.mulDiv(PRECISE_UNIT, price.tokenAPrice, price.token1Decimals);
         price.ratioLower = sqrtRatioToRatio(ratios.sqrtRatioLowerX96, uint128(PRECISE_UNIT), price.uniswapPool.token0(), price.uniswapPool.token1()); 
         price.ratioUpper = sqrtRatioToRatio(ratios.sqrtRatioUpperX96, uint128(PRECISE_UNIT), price.uniswapPool.token0(), price.uniswapPool.token1());
+        console.log("tokenA price", price.tokenAPrice);
+        console.log("price ratio lower", price.ratioLower);
+        console.log("price ratio upper", price.ratioUpper);
         price.ratioMid = (price.ratioLower >> 1) + (price.ratioUpper >> 1) + (price.ratioLower & price.ratioUpper & 1);
         
         if (price.tokenAPrice >= price.ratioLower && price.tokenAPrice <= price.ratioUpper) {
@@ -305,10 +308,13 @@ contract CaravanRentRouter01 is IRentRouter01 {
         if (params.tickUpper >= TickMath.MAX_TICK) {
             params.tickUpper = TickMath.MAX_TICK;
         }
+        console.log("current sqrt ratio", sqrtRatios.sqrtRatioX96);
+        console.log("sqrt ratio lower",sqrtRatios.sqrtRatioLowerX96);
+        console.log("sqrt ratio upper",sqrtRatios.sqrtRatioUpperX96);
+        console.log("liquidity amt from ratios",LiquidityAmounts.getLiquidityForAmounts(sqrtRatios.sqrtRatioX96,  sqrtRatios.sqrtRatioLowerX96, sqrtRatios.sqrtRatioUpperX96, params.amount0Desired, params.amount1Desired));
 
        (params.amount0Desired, params.amount1Desired) = LiquidityAmounts.getAmountsForLiquidity(sqrtRatios.sqrtRatioX96, sqrtRatios.sqrtRatioLowerX96, sqrtRatios.sqrtRatioUpperX96, LiquidityAmounts.getLiquidityForAmounts(sqrtRatios.sqrtRatioX96,  sqrtRatios.sqrtRatioLowerX96, sqrtRatios.sqrtRatioUpperX96, params.amount0Desired, params.amount1Desired));
 
-        
         console.log("amount0 actual", params.amount0Desired >= params.amount0Min);
         console.log("amount1 actual", params.amount1Desired >= params.amount1Min);
         require(params.amount0Desired >= params.amount0Min && params.amount1Desired >= params.amount1Min, "TOO MUCH SLIPPAGE");
@@ -319,10 +325,13 @@ contract CaravanRentRouter01 is IRentRouter01 {
         require(msg.value >= price, "INSUFFICIENT FUNDS");
 
         IERC20(params.token0).approve(address(rentPlatform), params.amount0Desired);
-        IERC20(params.token1).approve(address(rentPlatform), params.amount0Desired);
+        IERC20(params.token1).approve(address(rentPlatform), params.amount1Desired);
 
         rentPoolFactory.drawLiquidity(params.token0, params.token1, params.amount0Desired, params.amount1Desired, address(rentPlatform));
        (, uint256 amount0, uint256 amount1) = rentPlatform.createNewRental(params, poolAddr, msg.sender);
+
+       console.log("AMT 0 PLACED", amount0);
+       console.log("AMT 1 PLACED", amount1);
 
         splitFees(pool0, pool1, amount0, amount1, price);
        

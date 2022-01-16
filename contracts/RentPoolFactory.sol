@@ -85,6 +85,11 @@ contract RentPoolFactory is IRentPoolFactory {
         require(address(pool0) != address(0), "POOL NOT INITIALIZED");
         IRentPool pool1 =  IRentPool(tokenToPool[token1]); 
         require(address(pool1) != address(0), "POOL NOT INITIALIZED");
+        
+        (uint256 amount0Actual, ,) = pool0.getReserves();
+        (uint256 amount1Actual, ,) = pool1.getReserves();
+        require(amount0Actual > amount0, "NOT ENOUGH LIQUIDITY IN POOL0");
+        require(amount1Actual > amount1, "NOT ENOUGH LIQUIDITY IN POOL1");
         pool0.sendLiquidity(amount0, to);
         pool1.sendLiquidity(amount1, to);
     }
