@@ -65,6 +65,8 @@ contract CaravanRentRouter01 is IRentRouter01 {
         uint160 sqrtRatioLowerX96;
     }
 
+    event RentalPrice(uint price);
+
     modifier ensure(uint deadline) {
         require(deadline >= block.timestamp, 'RentRouter: EXPIRED');
         _;
@@ -150,12 +152,13 @@ contract CaravanRentRouter01 is IRentRouter01 {
         // sqrt(p) = uint160 sqrtPriceX96
         // 
         //if price is out of range below, all tokens should be token0
-        if (price.tokenAPrice < price.ratioLower) {
-            // do nothing, just ignore amountToken1
+        if (price.tokenAPrice >= price.ratioLower && price.tokenAPrice <= price.ratioUpper) {
+            amountToken0 += amountToken1.divideDecimalRound(price.tokenAPrice);
         }
-        if (amountToken0 == 0) {
+        if (price.tokenAPrice >= price.ratioUpper) {
             amountToken0 = amountToken1.divideDecimalRound(price.tokenAPrice);
         }
+        price.vol = amountToken0; //optionGreekCache.getVol(poolAddr);
         //option price is denominated in token1 and is scaled by amount of token0
         //since its denominated in token1, need to divide by token1 decimals to get actual number
         IBlackScholes.PricesDeltaStdVega memory optionPrices;
@@ -213,6 +216,8 @@ contract CaravanRentRouter01 is IRentRouter01 {
         //since price is per unit (of token0), need to scale by amount of token0 to get total price
         //depending on whether ratio of token1/token0 is above mid or below mid, price as a call or a put
         IBlackScholes.PricesDeltaStdVega memory optionPrices;
+        console.log(amountToken0);
+        console.log(price.token0Decimals);
         if (price.tokenAPrice < price.ratioMid) {
             optionPrices = 
                 blackScholes.pricesDeltaStdVega(
@@ -222,6 +227,9 @@ contract CaravanRentRouter01 is IRentRouter01 {
                     price.ratioLower,
                     optionGreekCache.getRiskFreeRate()
                 );
+            console.log(optionPrices.callPrice);
+            console.log(optionPrices.putPrice);
+            console.log(FullMath.mulDiv(optionPrices.callPrice, amountToken0, price.token0Decimals));
             return FullMath.mulDiv(optionPrices.callPrice, amountToken0, price.token0Decimals);
         } else {
             optionPrices = 
@@ -232,11 +240,14 @@ contract CaravanRentRouter01 is IRentRouter01 {
                     price.ratioUpper,
                     optionGreekCache.getRiskFreeRate()
                 );
+            console.log(optionPrices.callPrice);
+            console.log(optionPrices.putPrice);
+            console.log(FullMath.mulDiv(optionPrices.putPrice, amountToken0, price.token0Decimals));
             return FullMath.mulDiv(optionPrices.putPrice, amountToken0, price.token0Decimals);
         }
     }
 
-    function getSqrtRatios(IRentPlatform.BuyRentalParams memory params, address poolAddr) public returns (SqrtRatios memory) {
+    function getSqrtRatios(IRentPlatform.BuyRentalParams memory params, address poolAddr) public view returns (SqrtRatios memory) {
         (uint160 sqrtRatioX96, , , , , , )  = IUniswapV3Pool(poolAddr).slot0();
         uint160 sqrtRatioLowerX96 = TickMath.getSqrtRatioAtTick(params.tickLower);
         uint160 sqrtRatioUpperX96 = TickMath.getSqrtRatioAtTick(params.tickUpper);
@@ -248,15 +259,16 @@ contract CaravanRentRouter01 is IRentRouter01 {
 
     }
 
-    function quoteRental(IRentPlatform.BuyRentalParams memory params) public returns (uint256 rentalPrice) {
+    function quoteRental(IRentPlatform.BuyRentalParams memory params) public view returns (uint256 rentalPrice) {
         //check if enough liquidity is in the pool
-        // require(params.tickUpper > params.tickLower, "INCORRECT TICKS");
-        // require(block.timestamp < params.deadline, "DEADLINE PASSED");
+        require(params.tickUpper > params.tickLower, "INCORRECT TICKS");
+        require(block.timestamp < params.deadline, "DEADLINE PASSED");
         //check if price is right (call get price) and compare to slippage tolerance
         //create rental on existing rent platform
         console.log(msg.sender);
         address poolAddr = uniswapV3Factory.getPool(params.token0, params.token1, params.fee);
-        // require(poolAddr != address(0), "UNISWAP POOL DOES NOT EXIST");
+        console.log(poolAddr);
+        require(poolAddr != address(0), "UNISWAP POOL DOES NOT EXIST");
         SqrtRatios memory sqrtRatios = getSqrtRatios(params, poolAddr);
         
         //ticks must be within max and min tick. Could switch this to require if u want
@@ -269,6 +281,7 @@ contract CaravanRentRouter01 is IRentRouter01 {
 
         (params.amount0Desired, params.amount1Desired) = LiquidityAmounts.getAmountsForLiquidity(sqrtRatios.sqrtRatioX96, sqrtRatios.sqrtRatioLowerX96, sqrtRatios.sqrtRatioUpperX96, LiquidityAmounts.getLiquidityForAmounts(sqrtRatios.sqrtRatioX96,  sqrtRatios.sqrtRatioLowerX96, sqrtRatios.sqrtRatioUpperX96, params.amount0Desired, params.amount1Desired));
         rentalPrice = getRentalPrice(sqrtRatios, params, poolAddr);
+        // emit RentalPrice(rentalPrice);
     }
 
     function buyRental(IRentPlatform.BuyRentalParams memory params) external payable {

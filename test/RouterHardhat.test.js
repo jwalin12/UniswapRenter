@@ -3,9 +3,9 @@ const { assert, time } = require("console");
 const { ethers } = require("hardhat");
 const rentPoolABI = require("../data/abi/contracts/RentPool.sol/RentPool.json");
 const v3PoolABI = require("../data/abi/@uniswap/v3-core/contracts/interfaces/IUniswapV3Pool.sol/IUniswapV3Pool.json");
-const { FACTORY_ADDRESS } = require("@uniswap/v2-sdk");
+// const { FACTORY_ADDRESS } = require("@uniswap/v2-sdk");
 const PRECISE_UNIT = 1e18;
-
+const FACTORY_ADDRESS = "0x1F98431c8aD98523631AE4a59f267346ea31F984"; //v3 pool factory address
 const intToDecimals = async (i, tokenAddress) => {
     const prov = new ethers.providers.Web3Provider(network.provider);
     const abi = [
@@ -60,8 +60,8 @@ describe("Router", async () => {
                 provider
             );
             greekCache.connect(account).setPoolAddressToVol("0xc2e9f25be6257c210d7adf0d4cd6e3e881ba25f8", BigInt(.94*PRECISE_UNIT));
-            const daiAddr = "0x6B175474E89094C44Da98b954EedeAC495271d0F";
-            const WethAddr = "0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2" ;
+            const daiAddr = "0x6b175474e89094c44da98b954eedeac495271d0f";
+            const WethAddr = "0xc02aaa39b223fe8d0a0e5c4f27ead9083c756cc2" ;
             const blockNumber = await provider.getBlockNumber();
             const block = await provider.getBlock(blockNumber);
             const timestamp = block.timestamp;
@@ -78,14 +78,16 @@ describe("Router", async () => {
                 token0: daiAddr,
                 token1: WethAddr,
                 amount0Desired: ethers.utils.parseEther("0.000001"),
-                amount1Desired: ethers.utils.parseEther("0"),
+                amount1Desired: ethers.utils.parseEther("0.000001"),
                 amount0Min: ethers.utils.parseEther("0.000001"),
                 amount1Min: ethers.utils.parseEther("0"),
                 deadline: timestamp + duration
             }
-            console.log("Rental Params:", rentalParams)
+            // console.log("Rental Params:", rentalParams)
             let rentalPrice = await router.quoteRental(rentalParams);
-            console.log(rentalPrice);
+            console.log("Got rental price:", rentalPrice)
+            let testPrice = await router.test(upperTick, lowerTick, duration, "0xc2e9f25be6257c210d7adf0d4cd6e3e881ba25f8", ethers.utils.parseEther("0.000001"), ethers.utils.parseEther("0.000001"));
+            console.log("Test price:", testPrice.call, testPrice.put, testPrice.vol, testPrice.token0Decimals);
         } catch (e) {
             if (e != null) {
                 console.log(e);
