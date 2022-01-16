@@ -254,6 +254,7 @@ contract CaravanRentRouter01 is IRentRouter01 {
         // require(block.timestamp < params.deadline, "DEADLINE PASSED");
         //check if price is right (call get price) and compare to slippage tolerance
         //create rental on existing rent platform
+        console.log(msg.sender);
         address poolAddr = uniswapV3Factory.getPool(params.token0, params.token1, params.fee);
         // require(poolAddr != address(0), "UNISWAP POOL DOES NOT EXIST");
         SqrtRatios memory sqrtRatios = getSqrtRatios(params, poolAddr);

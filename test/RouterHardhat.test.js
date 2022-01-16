@@ -2,7 +2,8 @@ const { expect } = require("chai");
 const { assert, time } = require("console");
 const { ethers } = require("hardhat");
 const rentPoolABI = require("../data/abi/contracts/RentPool.sol/RentPool.json");
-const v3PoolABI = require("../data/abi/@uniswap/v3-core/contracts/interfaces/IUniswapV3Pool.sol/IUniswapV3Pool.json")
+const v3PoolABI = require("../data/abi/@uniswap/v3-core/contracts/interfaces/IUniswapV3Pool.sol/IUniswapV3Pool.json");
+const { FACTORY_ADDRESS } = require("@uniswap/v2-sdk");
 const PRECISE_UNIT = 1e18;
 
 const intToDecimals = async (i, tokenAddress) => {
@@ -47,7 +48,7 @@ describe("Router", async () => {
         rentalEscrow = await RentalEscrow.deploy("0xC36442b4a4522E871399CD717aBDD847Ab11FE88",rentalPlatform.address,account.address);
         await rentalEscrow.setAutomatedRentalPlatform(rentalPlatform.address);
         await rentalPlatform.setRentalEscrow(rentalEscrow.address);
-        router = await Router.deploy(rentPoolFactory.address, "0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2", greekCache.address, blackScholes.address, "0x1F98431c8aD98523631AE4a59f267346ea31F984", rentalPlatform.address, account.address, account.address, 0);
+        router = await Router.deploy(rentPoolFactory.address, "0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2", greekCache.address, blackScholes.address, rentalPlatform.address, FACTORY_ADDRESS, account.address, account.address, 0);
         console.log("Router contract deployed to:", router.address);
     });
 
