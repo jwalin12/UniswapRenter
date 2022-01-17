@@ -10,13 +10,13 @@ import "@openzeppelin/contracts/utils/Create2.sol";
 
 contract RentPoolFactory is IRentPoolFactory {
 
-    address UniswapV3Factory = 0x1F98431c8aD98523631AE4a59f267346ea31F984;
+    address public immutable UniswapV3Factory = 0x1F98431c8aD98523631AE4a59f267346ea31F984;
     address private _feeTo; //who the fees go to
     address private _feeToSetter; //who sets where the fee goes to
     mapping(address => address) public tokenToPool;
     address[] public allPools;
 
-    address _approvedLiqudityManager;
+    address public _approvedLiqudityManager;
 
     uint256 public _fee; //fee is divided by 10000, so 2 is 0.02% fee
     uint256 public feesAccrued;

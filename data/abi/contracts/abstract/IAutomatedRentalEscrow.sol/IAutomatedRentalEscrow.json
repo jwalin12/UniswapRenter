@@ -27,7 +27,7 @@
     "inputs": [
       {
         "internalType": "address",
-        "name": "uniswapPoolAddr",
+        "name": "uniswapPoolAddress",
         "type": "address"
       },
       {
@@ -154,7 +154,7 @@
       },
       {
         "internalType": "address",
-        "name": "uniswapPoolAddr",
+        "name": "uniswapPoolAddress",
         "type": "address"
       },
       {
@@ -177,7 +177,7 @@
       },
       {
         "internalType": "address",
-        "name": "uniswapPoolAddr",
+        "name": "uniswapPoolAddress",
         "type": "address"
       },
       {

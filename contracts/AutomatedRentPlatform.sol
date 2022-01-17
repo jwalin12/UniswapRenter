@@ -54,20 +54,20 @@ contract AutomatedRentPlatform is IRentPlatform  {
 
         }
 
-        function createNewRental(IRentPlatform.BuyRentalParams memory params, address uniswapPoolAddr, address _renter) external override returns (uint256 tokenId,
+        function createNewRental(IRentPlatform.BuyRentalParams memory params, address uniswapPoolAddress, address _renter) external override returns (uint256 tokenId,
             uint256 amount0, uint256 amount1) {
             require(_rentalEscrow != address(0), "RENTAL ESCROW NOT SET");
             
-            tokenId = IAutomatedRentalEscrow(_rentalEscrow).getOldPositions(uniswapPoolAddr, params.tickLower, params.tickUpper);
+            tokenId = IAutomatedRentalEscrow(_rentalEscrow).getOldPositions(uniswapPoolAddress, params.tickLower, params.tickUpper);
             if (tokenId != 0) {
                 
-                (amount0, amount1) = useOldPosition(params, tokenId, uniswapPoolAddr);
+                (amount0, amount1) = useOldPosition(params, tokenId, uniswapPoolAddress);
             }
 
             else {
-                address posManagerAddr = IAutomatedRentalEscrow(_rentalEscrow).getUniswapPositionManager();
-                TransferHelper.safeApprove(params.token0, posManagerAddr,  params.amount0Desired);
-                TransferHelper.safeApprove(params.token1, posManagerAddr,  params.amount1Desired);
+                address posManagerAddress = IAutomatedRentalEscrow(_rentalEscrow).getUniswapPositionManager();
+                TransferHelper.safeApprove(params.token0, posManagerAddress,  params.amount0Desired);
+                TransferHelper.safeApprove(params.token1, posManagerAddress,  params.amount1Desired);
 
                 INonfungiblePositionManager.MintParams memory mintParams = INonfungiblePositionManager.MintParams({
                 token0: params.token0,
@@ -82,7 +82,7 @@ contract AutomatedRentPlatform is IRentPlatform  {
                 amount1Min: params.amount1Min,
                 deadline: params.deadline
                 });
-                (tokenId, ,amount0, amount1) = INonfungiblePositionManager(posManagerAddr).mint(mintParams);                
+                (tokenId, ,amount0, amount1) = INonfungiblePositionManager(posManagerAddress).mint(mintParams);                
                 // TransferHelper.safeApprove(token, to, value);
                 //(bool success, bytes memory result) = address(posManager).delegatecall(abi.encodeWithSignature("mint(MintParams calldata params)", mintParams));
                 //console.log("minted pos", success);
@@ -95,7 +95,7 @@ contract AutomatedRentPlatform is IRentPlatform  {
 
 
             rentalsInProgress.push(tokenId);
-           IAutomatedRentalEscrow(_rentalEscrow).handleNewRental(tokenId, params,uniswapPoolAddr, _renter);
+           IAutomatedRentalEscrow(_rentalEscrow).handleNewRental(tokenId, params,uniswapPoolAddress, _renter);
     }
 
     function endRental(uint256 tokenId) external override { 

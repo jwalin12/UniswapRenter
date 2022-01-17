@@ -28,8 +28,8 @@ contract AutomatedRentalEscrow is IAutomatedRentalEscrow {
         console.log("POS MANAGER at get",address(UniswapNonFungiblePositionManager));
         return address(UniswapNonFungiblePositionManager);
     }
-    function getOldPositions(address uniswapPoolAddr, int24 tickUpper, int24 tickLower) external override returns (uint256 tokenId) {
-        tokenId = oldPositions[uniswapPoolAddr][tickUpper][tickLower];
+    function getOldPositions(address uniswapPoolAddress, int24 tickUpper, int24 tickLower) external override returns (uint256 tokenId) {
+        tokenId = oldPositions[uniswapPoolAddress][tickUpper][tickLower];
     }
 
     function setAutomatedRentalPlatform(address automatedRentalPlatform) external {
@@ -43,7 +43,7 @@ contract AutomatedRentalEscrow is IAutomatedRentalEscrow {
         }
 
 
-    function handleNewRental(uint256 tokenId, IRentPlatform.BuyRentalParams memory params, address uniswapPoolAddr, address _renter) external override {
+    function handleNewRental(uint256 tokenId, IRentPlatform.BuyRentalParams memory params, address uniswapPoolAddress, address _renter) external override {
         require(msg.sender == payable(_automatedRentalPlatform),"UNAUTHORIZED ACTION");
          tokenIdToRentInfo[tokenId] = IRentPlatform.RentInfo({
                 originalOwner: payable(address(this)),
@@ -51,7 +51,7 @@ contract AutomatedRentalEscrow is IAutomatedRentalEscrow {
                 tokenId: tokenId,
                 expiryDate: block.timestamp + params.duration,
             
-                uniswapPoolAddress: uniswapPoolAddr
+                uniswapPoolAddress: uniswapPoolAddress
             });
 
     }
@@ -115,8 +115,8 @@ contract AutomatedRentalEscrow is IAutomatedRentalEscrow {
 
     }
 
-    function handleReuseOldPosition(uint256 tokenId, address uniswapPoolAddr, IRentPlatform.BuyRentalParams memory params) external override returns(uint256 amount0, uint256 amount1) {
-       oldPositions[uniswapPoolAddr][params.tickLower][params.tickUpper] = 0;
+    function handleReuseOldPosition(uint256 tokenId, address uniswapPoolAddress, IRentPlatform.BuyRentalParams memory params) external override returns(uint256 amount0, uint256 amount1) {
+       oldPositions[uniswapPoolAddress][params.tickLower][params.tickUpper] = 0;
 
     } 
 

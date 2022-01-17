@@ -128,7 +128,7 @@
       },
       {
         "internalType": "address",
-        "name": "uniswapPoolAddr",
+        "name": "uniswapPoolAddress",
         "type": "address"
       },
       {

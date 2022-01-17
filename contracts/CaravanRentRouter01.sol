@@ -122,14 +122,14 @@ contract CaravanRentRouter01 is IRentRouter01 {
         }
     }
    
-    function getRentalPrice(SqrtRatios memory ratios, IRentPlatform.BuyRentalParams memory params, address poolAddr) public view returns (uint256) {
+    function getRentalPrice(SqrtRatios memory ratios, IRentPlatform.BuyRentalParams memory params, address poolAddress) public view returns (uint256) {
 
         uint256 amountToken0 = params.amount0Desired;
         uint256 amountToken1 = params.amount1Desired;
 
 
         PriceInfo memory price;        
-        price.uniswapPool = IUniswapV3Pool(poolAddr);
+        price.uniswapPool = IUniswapV3Pool(poolAddress);
         price.token0Decimals = 10**IRentERC20(price.uniswapPool.token0()).decimals();
         price.token1Decimals = 10**IRentERC20(price.uniswapPool.token1()).decimals();
         //calculate price of token1/token0 = price of token 0 in terms of token1
@@ -158,7 +158,7 @@ contract CaravanRentRouter01 is IRentRouter01 {
             optionPrices = 
                 blackScholes.pricesDeltaStdVega(
                     params.duration,
-                    optionGreekCache.getVol(poolAddr),
+                    optionGreekCache.getVol(poolAddress),
                     price.tokenAPrice,
                     price.ratioLower,
                     optionGreekCache.getRiskFreeRate()
@@ -168,7 +168,7 @@ contract CaravanRentRouter01 is IRentRouter01 {
             optionPrices = 
                 blackScholes.pricesDeltaStdVega(
                     params.duration,
-                    optionGreekCache.getVol(poolAddr),
+                    optionGreekCache.getVol(poolAddress),
                     price.tokenAPrice,
                     price.ratioUpper,
                     optionGreekCache.getRiskFreeRate()
@@ -177,8 +177,8 @@ contract CaravanRentRouter01 is IRentRouter01 {
         }
     }
 
-    function getSqrtRatios(IRentPlatform.BuyRentalParams memory params, address poolAddr) public view returns (SqrtRatios memory) {
-        (uint160 sqrtRatioX96, , , , , , )  = IUniswapV3Pool(poolAddr).slot0();
+    function getSqrtRatios(IRentPlatform.BuyRentalParams memory params, address poolAddress) public view returns (SqrtRatios memory) {
+        (uint160 sqrtRatioX96, , , , , , )  = IUniswapV3Pool(poolAddress).slot0();
         uint160 sqrtRatioLowerX96 = TickMath.getSqrtRatioAtTick(params.tickLower);
         uint160 sqrtRatioUpperX96 = TickMath.getSqrtRatioAtTick(params.tickUpper);
         return SqrtRatios ({
@@ -196,9 +196,9 @@ contract CaravanRentRouter01 is IRentRouter01 {
         //check if price is right (call get price) and compare to slippage tolerance
         //create rental on existing rent platform
        
-        address poolAddr = uniswapV3Factory.getPool(params.token0, params.token1, params.fee);
-        require(poolAddr != address(0), "UNISWAP POOL DOES NOT EXIST");
-        SqrtRatios memory sqrtRatios = getSqrtRatios(params, poolAddr);
+        address poolAddress = uniswapV3Factory.getPool(params.token0, params.token1, params.fee);
+        require(poolAddress != address(0), "UNISWAP POOL DOES NOT EXIST");
+        SqrtRatios memory sqrtRatios = getSqrtRatios(params, poolAddress);
         
         //ticks must be within max and min tick. Could switch this to require if u want
         if (params.tickLower <= TickMath.MIN_TICK) {
@@ -209,7 +209,7 @@ contract CaravanRentRouter01 is IRentRouter01 {
         }
 
         (params.amount0Desired, params.amount1Desired) = LiquidityAmounts.getAmountsForLiquidity(sqrtRatios.sqrtRatioX96, sqrtRatios.sqrtRatioLowerX96, sqrtRatios.sqrtRatioUpperX96, LiquidityAmounts.getLiquidityForAmounts(sqrtRatios.sqrtRatioX96,  sqrtRatios.sqrtRatioLowerX96, sqrtRatios.sqrtRatioUpperX96, params.amount0Desired, params.amount1Desired));
-        rentalPrice = getRentalPrice(sqrtRatios, params, poolAddr);
+        rentalPrice = getRentalPrice(sqrtRatios, params, poolAddress);
         // emit RentalPrice(rentalPrice);
     }
 
@@ -223,9 +223,9 @@ contract CaravanRentRouter01 is IRentRouter01 {
         require(block.timestamp < params.deadline, "DEADLINE PASSED");
         //check if price is right (call get price) and compare to slippage tolerance
         //create rental on existing rent platform
-        address poolAddr = uniswapV3Factory.getPool(params.token0, params.token1, params.fee);
-        require(poolAddr != address(0), "UNISWAP POOL DOES NOT EXIST");
-        SqrtRatios memory sqrtRatios = getSqrtRatios(params, poolAddr);
+        address poolAddress = uniswapV3Factory.getPool(params.token0, params.token1, params.fee);
+        require(poolAddress != address(0), "UNISWAP POOL DOES NOT EXIST");
+        SqrtRatios memory sqrtRatios = getSqrtRatios(params, poolAddress);
         
         //ticks must be within max and min tick. Could switch this to require if u want
         if (params.tickLower <= TickMath.MIN_TICK) {
@@ -239,7 +239,7 @@ contract CaravanRentRouter01 is IRentRouter01 {
 
         require(params.amount0Desired >= params.amount0Min && params.amount1Desired >= params.amount1Min, "TOO MUCH SLIPPAGE");
 
-        uint256 price = getRentalPrice(sqrtRatios, params, poolAddr);
+        uint256 price = getRentalPrice(sqrtRatios, params, poolAddress);
         require(price > 0, "POSITION TOO SMALL OR TOO FAR OUT OF RANGE");
         require(price <= params.priceMax, "RENTAL PRICE TOO HIGH");
         require(msg.value >= price, "INSUFFICIENT FUNDS");
@@ -248,7 +248,7 @@ contract CaravanRentRouter01 is IRentRouter01 {
         IERC20(params.token1).approve(address(rentPlatform), params.amount1Desired);
 
         rentPoolFactory.drawLiquidity(params.token0, params.token1, params.amount0Desired, params.amount1Desired, address(rentPlatform));
-       (, uint256 amount0, uint256 amount1) = rentPlatform.createNewRental(params, poolAddr, msg.sender);
+       (, uint256 amount0, uint256 amount1) = rentPlatform.createNewRental(params, poolAddress, msg.sender);
         splitFees(pool0, pool1, amount0, amount1, price);
        
         //send back dust ETH
