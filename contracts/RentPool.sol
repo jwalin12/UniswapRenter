@@ -151,9 +151,7 @@ contract RentPool is IRentPool, RentERC20 {
 
     function sendLiquidity(uint256 amount, address to) external override {
         require(msg.sender == factory, "UNAPPROVED ACTION");
-        console.log("sending liquidity to ...", to);
         IERC20(token).transfer(to, amount);
-        console.log("liquidity sent..", amount);
     }
 
 

@@ -121,73 +121,9 @@ contract CaravanRentRouter01 is IRentRouter01 {
                 : FullMath.mulDiv(1 << 128, baseAmount, ratioX128);
         }
     }
-
-
-    function test(int24 tickUpper, int24 tickLower, uint256 durationInSeconds, address poolAddr, uint256 amountToken0, uint256 amountToken1) public view returns (PriceInfo memory) {
-        PriceInfo memory price;
-        price.uniswapPool = IUniswapV3Pool(poolAddr);
-        (int24 meanTick, ) = OracleLibrary.consult(poolAddr, 60);
-        price.meanTick = meanTick;
-        price.token0Decimals = 10**IRentERC20(price.uniswapPool.token0()).decimals();
-        price.token1Decimals = 10**IRentERC20(price.uniswapPool.token1()).decimals();
-        //getQuoteAtTick returns token1/token0 (price of token0 in terms of token1)
-        price.tokenAPrice = OracleLibrary.getQuoteAtTick(meanTick, uint128(price.token0Decimals), price.uniswapPool.token0(), price.uniswapPool.token1()); 
-        price.tokenAPrice = FullMath.mulDiv(PRECISE_UNIT, price.tokenAPrice, price.token1Decimals);
-        price.ratioLower = OracleLibrary.getQuoteAtTick(tickLower, uint128(PRECISE_UNIT), price.uniswapPool.token0(), price.uniswapPool.token1()); 
-        price.ratioUpper = OracleLibrary.getQuoteAtTick(tickUpper, uint128(PRECISE_UNIT), price.uniswapPool.token0(), price.uniswapPool.token1());
-        price.ratioMid = (price.ratioLower >> 1) + (price.ratioUpper >> 1) + (price.ratioLower & price.ratioUpper & 1);
-        price.vol = optionGreekCache.getVol(poolAddr);
-        price.rate = optionGreekCache.getRiskFreeRate();
-        if (price.ratioLower == 0) {
-            price.ratioLower = 1;
-        } 
-        //real reserves: ( x_r + L / sqrt(p_b) ) * ( y_r + L * sqrt(p_a) ) = L^2
-        
-        // virtual reserves:
-        // L = sqrt(x * y)
-        // sqrt(p) = sqrt(y / x)
-        // x = L / sqrt(p)
-        // y = L * sqrt(p)
-        // L = uint128 liquidity
-        // sqrt(p) = uint160 sqrtPriceX96
-        // 
-        //if price is out of range below, all tokens should be token0
-        if (price.tokenAPrice >= price.ratioLower && price.tokenAPrice <= price.ratioUpper) {
-            amountToken0 += amountToken1.divideDecimalRound(price.tokenAPrice);
-        }
-        if (price.tokenAPrice >= price.ratioUpper) {
-            amountToken0 = amountToken1.divideDecimalRound(price.tokenAPrice);
-        }
-        price.vol = amountToken0; //optionGreekCache.getVol(poolAddr);
-        //option price is denominated in token1 and is scaled by amount of token0
-        //since its denominated in token1, need to divide by token1 decimals to get actual number
-        IBlackScholes.PricesDeltaStdVega memory optionPrices;
-        if (price.tokenAPrice < price.ratioMid) {
-            optionPrices = 
-                blackScholes.pricesDeltaStdVega(
-                    durationInSeconds,
-                    optionGreekCache.getVol(poolAddr),
-                    price.tokenAPrice,
-                    price.ratioLower,
-                    optionGreekCache.getRiskFreeRate()
-                );
-        } else {
-            optionPrices = 
-                blackScholes.pricesDeltaStdVega(
-                    durationInSeconds,
-                    optionGreekCache.getVol(poolAddr),
-                    price.tokenAPrice,
-                    price.ratioUpper,
-                    optionGreekCache.getRiskFreeRate()
-                );
-        }
-        price.call = FullMath.mulDiv(optionPrices.callPrice, amountToken0, price.token0Decimals);
-        price.put = FullMath.mulDiv(optionPrices.putPrice, amountToken0, price.token0Decimals);
-        return price;
-    }    
    
     function getRentalPrice(SqrtRatios memory ratios, IRentPlatform.BuyRentalParams memory params, address poolAddr) public view returns (uint256) {
-        //instantiate stuff
+
         uint256 amountToken0 = params.amount0Desired;
         uint256 amountToken1 = params.amount1Desired;
 
@@ -202,9 +138,7 @@ contract CaravanRentRouter01 is IRentRouter01 {
         price.tokenAPrice = FullMath.mulDiv(PRECISE_UNIT, price.tokenAPrice, price.token1Decimals);
         price.ratioLower = sqrtRatioToRatio(ratios.sqrtRatioLowerX96, uint128(PRECISE_UNIT), price.uniswapPool.token0(), price.uniswapPool.token1()); 
         price.ratioUpper = sqrtRatioToRatio(ratios.sqrtRatioUpperX96, uint128(PRECISE_UNIT), price.uniswapPool.token0(), price.uniswapPool.token1());
-        console.log("tokenA price", price.tokenAPrice);
-        console.log("price ratio lower", price.ratioLower);
-        console.log("price ratio upper", price.ratioUpper);
+       
         price.ratioMid = (price.ratioLower >> 1) + (price.ratioUpper >> 1) + (price.ratioLower & price.ratioUpper & 1);
         
         if (price.tokenAPrice >= price.ratioLower && price.tokenAPrice <= price.ratioUpper) {
@@ -219,8 +153,7 @@ contract CaravanRentRouter01 is IRentRouter01 {
         //since price is per unit (of token0), need to scale by amount of token0 to get total price
         //depending on whether ratio of token1/token0 is above mid or below mid, price as a call or a put
         IBlackScholes.PricesDeltaStdVega memory optionPrices;
-        console.log(amountToken0);
-        console.log(price.token0Decimals);
+       
         if (price.tokenAPrice < price.ratioMid) {
             optionPrices = 
                 blackScholes.pricesDeltaStdVega(
@@ -230,9 +163,6 @@ contract CaravanRentRouter01 is IRentRouter01 {
                     price.ratioLower,
                     optionGreekCache.getRiskFreeRate()
                 );
-            console.log(optionPrices.callPrice);
-            console.log(optionPrices.putPrice);
-            console.log(FullMath.mulDiv(optionPrices.callPrice, amountToken0, price.token0Decimals));
             return FullMath.mulDiv(optionPrices.callPrice, amountToken0, price.token0Decimals);
         } else {
             optionPrices = 
@@ -243,9 +173,6 @@ contract CaravanRentRouter01 is IRentRouter01 {
                     price.ratioUpper,
                     optionGreekCache.getRiskFreeRate()
                 );
-            console.log(optionPrices.callPrice);
-            console.log(optionPrices.putPrice);
-            console.log(FullMath.mulDiv(optionPrices.putPrice, amountToken0, price.token0Decimals));
             return FullMath.mulDiv(optionPrices.putPrice, amountToken0, price.token0Decimals);
         }
     }
@@ -262,15 +189,14 @@ contract CaravanRentRouter01 is IRentRouter01 {
 
     }
 
-    function quoteRental(IRentPlatform.BuyRentalParams memory params) public view returns (uint256 rentalPrice) {
+    function quoteRental(IRentPlatform.BuyRentalParams memory params) external override view returns (uint256 rentalPrice) {
         //check if enough liquidity is in the pool
         require(params.tickUpper > params.tickLower, "INCORRECT TICKS");
         require(block.timestamp < params.deadline, "DEADLINE PASSED");
         //check if price is right (call get price) and compare to slippage tolerance
         //create rental on existing rent platform
-        console.log(msg.sender);
+       
         address poolAddr = uniswapV3Factory.getPool(params.token0, params.token1, params.fee);
-        console.log(poolAddr);
         require(poolAddr != address(0), "UNISWAP POOL DOES NOT EXIST");
         SqrtRatios memory sqrtRatios = getSqrtRatios(params, poolAddr);
         
@@ -308,15 +234,9 @@ contract CaravanRentRouter01 is IRentRouter01 {
         if (params.tickUpper >= TickMath.MAX_TICK) {
             params.tickUpper = TickMath.MAX_TICK;
         }
-        console.log("current sqrt ratio", sqrtRatios.sqrtRatioX96);
-        console.log("sqrt ratio lower",sqrtRatios.sqrtRatioLowerX96);
-        console.log("sqrt ratio upper",sqrtRatios.sqrtRatioUpperX96);
-        console.log("liquidity amt from ratios",LiquidityAmounts.getLiquidityForAmounts(sqrtRatios.sqrtRatioX96,  sqrtRatios.sqrtRatioLowerX96, sqrtRatios.sqrtRatioUpperX96, params.amount0Desired, params.amount1Desired));
-
+       
        (params.amount0Desired, params.amount1Desired) = LiquidityAmounts.getAmountsForLiquidity(sqrtRatios.sqrtRatioX96, sqrtRatios.sqrtRatioLowerX96, sqrtRatios.sqrtRatioUpperX96, LiquidityAmounts.getLiquidityForAmounts(sqrtRatios.sqrtRatioX96,  sqrtRatios.sqrtRatioLowerX96, sqrtRatios.sqrtRatioUpperX96, params.amount0Desired, params.amount1Desired));
 
-        console.log("amount0 actual", params.amount0Desired >= params.amount0Min);
-        console.log("amount1 actual", params.amount1Desired >= params.amount1Min);
         require(params.amount0Desired >= params.amount0Min && params.amount1Desired >= params.amount1Min, "TOO MUCH SLIPPAGE");
 
         uint256 price = getRentalPrice(sqrtRatios, params, poolAddr);
@@ -329,10 +249,6 @@ contract CaravanRentRouter01 is IRentRouter01 {
 
         rentPoolFactory.drawLiquidity(params.token0, params.token1, params.amount0Desired, params.amount1Desired, address(rentPlatform));
        (, uint256 amount0, uint256 amount1) = rentPlatform.createNewRental(params, poolAddr, msg.sender);
-
-       console.log("AMT 0 PLACED", amount0);
-       console.log("AMT 1 PLACED", amount1);
-
         splitFees(pool0, pool1, amount0, amount1, price);
        
         //send back dust ETH
@@ -380,9 +296,7 @@ contract CaravanRentRouter01 is IRentRouter01 {
     ) external virtual override payable ensure(deadline) returns (uint liquidity) {
         _addLiquidity(WETH);
         require(msg.value >= amountETH, "INSUFFICIENT FUNDS SENT");
-        console.log("Getting WETH Pool");
         address pool = IRentPoolFactory(factory).getPool(WETH);
-        console.log("depsoting ETH  into WETH contract");
         
         IWETH(WETH).deposit{ value : amountETH }();
         assert(IWETH(WETH).transfer(pool, amountETH));

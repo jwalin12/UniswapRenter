@@ -65,15 +65,7 @@ contract AutomatedRentPlatform is IRentPlatform  {
             }
 
             else {
-                console.log("minting new pos...");
-                console.log(msg.sender);
                 address posManagerAddr = IAutomatedRentalEscrow(_rentalEscrow).getUniswapPositionManager();
-                console.log(IERC20(params.token0).balanceOf(address(this)) >= params.amount0Desired);
-                console.log(IERC20(params.token1).balanceOf(address(this)) >= params.amount1Desired);
-                console.log("AMT0BAL at platform",IERC20(params.token0).balanceOf(address(this))  );
-                console.log("AMT1BAL at platform",IERC20(params.token1).balanceOf(address(this))  );
-                console.log("AMT0DESIRED", params.amount0Desired);
-                console.log("AMT1DESIRED", params.amount1Desired);
                 TransferHelper.safeApprove(params.token0, posManagerAddr,  params.amount0Desired);
                 TransferHelper.safeApprove(params.token1, posManagerAddr,  params.amount1Desired);
 
@@ -90,7 +82,6 @@ contract AutomatedRentPlatform is IRentPlatform  {
                 amount1Min: params.amount1Min,
                 deadline: params.deadline
                 });
-                console.log("Amount1Min", params.amount1Min <= params.amount1Desired);
                 (tokenId, ,amount0, amount1) = INonfungiblePositionManager(posManagerAddr).mint(mintParams);                
                 // TransferHelper.safeApprove(token, to, value);
                 //(bool success, bytes memory result) = address(posManager).delegatecall(abi.encodeWithSignature("mint(MintParams calldata params)", mintParams));

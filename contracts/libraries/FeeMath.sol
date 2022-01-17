@@ -24,8 +24,6 @@ library FeeMath {
         (uint256 totalAmountToken0, , ) = pool0.getReserves();
         (uint256 totalAmountToken1, , ) = pool1.getReserves();
 
-
-
         uint token1Ratio;
         uint token0Ratio;
 

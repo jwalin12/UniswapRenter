@@ -70,11 +70,9 @@ contract RentPoolFactory is IRentPoolFactory {
         bytes32 salt = keccak256(abi.encodePacked(token, "CARAVAN"));
         bytes32 bytecodeHash =keccak256(abi.encodePacked(type(RentPool).creationCode));
         pool = Create2.deploy(0, salt, bytecode);
-        console.log(pool);
         IRentPool(pool).initialize(token);
         tokenToPool[token] = pool;
         allPools.push(pool);
-        console.log("INIT SUCCESFULLY");
         emit PoolCreated(token, pool, allPools.length);
     }
 

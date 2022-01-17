@@ -125,15 +125,6 @@ describe("Router", () => {
     })
 
 
-    // it("should mint", async () => {
-
-    //     poolContract.mint()
-
-
-
-    // })
-
-
     it("should be able to add liquidity to the pools being used", async() => {
 
         try {
@@ -186,11 +177,6 @@ describe("Router", () => {
         console.log("TOKEN0:",await poolContract.token0());
         await console.log("DAI BAL", DaiContract.balanceOf(account.address) > ethers.utils.parseEther("1") );
 
-        // await DaiContract.connect(account).approve(router.address, ethers.utils.parseEther('20'));
-        // await WethContract.connect(account).approve(router.address, ethers.utils.parseEther('20'));
-        // await router.addLiquidityETH(ethers.utils.parseEther('10'), ethers.utils.parseEther('0'), account.address, ethers.BigNumber.from(deadline),{ value: ethers.utils.parseEther('10') });
-        // await router.addLiquidity(daiAddr, ethers.utils.parseEther('10'), ethers.utils.parseEther('0'), account.address, ethers.BigNumber.from(deadline)); 
-
         await router.connect(account).buyRental(rentalParams, { value: ethers.utils.parseEther('1') });
         daiPoolAddr = await rentPoolFactory.getPool(daiAddr);
         daiRentPool = await new ethers.Contract(daiPoolAddr, rentPoolABI, provider);
@@ -219,12 +205,6 @@ describe("Router", () => {
     });
 
 
-
-    // it("should return error when collecting fees when rental is up", async () => {
-    //     await network.provider.send("evm_setNextBlockTimestamp", [deadline +100001]);
-    //     expect(await rentalPlatform.collectFeesForRenter(await rentalPlatform.rentalsInProgress(0), 0, 0));
-
-    // });
     it("should end rental", async () => {
         await network.provider.send("evm_setNextBlockTimestamp", [deadline +100003]);
         await rentalPlatform.endRental(await rentalPlatform.rentalsInProgress(0));

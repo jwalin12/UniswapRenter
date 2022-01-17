@@ -98,107 +98,48 @@ describe("Router", async () => {
         
     });
 
-    // it("should be able to not return zero price", async() => {
-    //     try {
-    //         const poolContract = await new ethers.Contract(
-    //             "0xc2e9f25be6257c210d7adf0d4cd6e3e881ba25f8",
-    //             v3PoolABI,
-    //             provider
-    //         );
-    //         greekCache.connect(account).setPoolAddressToVol("0xc2e9f25be6257c210d7adf0d4cd6e3e881ba25f8", BigInt(.94*PRECISE_UNIT));
-    //         const lowerTick = -887272; //81609; // ETH/USDC = $3500 per ETH = 3499.90807274
-    //         const upperTick = 887272; //82944; // ETH/USDC = $4000 per ETH = 3999.74267845
-    //         const daiAddr = "0x6B175474E89094C44Da98b954EedeAC495271d0F";
-    //         const WethAddr = "0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2" ;
-    //         const blockNumber = await provider.getBlockNumber();
-    //         const block = await provider.getBlock(blockNumber);
-    //         const timestamp = block.timestamp;
-    //         const duration = 10000;
-    //         rentalParams = {
-    //             tickUpper: upperTick,
-    //             tickLower: lowerTick,
-    //             fee: 3000,
-    //             duration: duration,
-    //             priceMax: 10000000000000,
-    //             token0: daiAddr,
-    //             token1: WethAddr,
-    //             amount0Desired: ethers.utils.parseEther("0.000001"),
-    //             amount1Desired: ethers.utils.parseEther("0"),
-    //             amount0Min: ethers.utils.parseEther("0.000001"),
-    //             amount1Min: ethers.utils.parseEther("0"),
-    //             deadline: timestamp + duration
-    //         }
-    //         let rentalPrice = await router.connect(account).quoteRental(rentalParams, { value: ethers.utils.parseEther('1') });
-    //         console.log(rentalPrice);
-    //     } catch (e) {
-    //         if (e != null) {
-    //             console.log(e);
-    //             console.log("Error when getting price data");
-    //         }
-    //         expect(e == null, "error %v", e);
-    //     }            
-        
-    // });
 
 
-    // it("should be able to get price data", async() => {
-    //     try {
 
+
+    it("should be able to add and remove ETH liquidity", async() => {
+
+        try {
+            blockNumber = await provider.getBlockNumber();
+            block = await provider.getBlock(blockNumber);
+            timestamp = block.timestamp;
+            const deadline = timestamp + 864000
+            const origBal = await provider.getBalance(account.address)
+            poolAddr = await rentPoolFactory.getPool(WETH.address);
+            expect(poolAddr == "0x0000000000000000000000000000000000000000", "POOL ADDR NOT 0");
+            await router.addLiquidityETH(ethers.utils.parseEther('10'), ethers.utils.parseEther('0'), account.address, ethers.BigNumber.from(deadline),{ value: ethers.utils.parseEther('11') });
+            poolAddr = await rentPoolFactory.getPool(WETH.address);
+
+            //check token balance of user
+            expect(await provider.getBalance(account.address) == (origBal-ethers.utils.parseEther('10')),  "FUNDS NOT TAKEN FROM SENDER");
             
+            //add liquidity
 
-    //         const lowerTick = 81609; // ETH/USDC = $3500 per ETH = 3499.90807274
-    //         const upperTick = 82944; // ETH/USDC = $4000 per ETH = 3999.74267845
-    //         const yearInSeconds = 31556926; // # of secs per year
-    //         let rentalPrice = await router.test(lowerTick, upperTick, yearInSeconds, "0x8ad599c3a0ff1de082011efddc58f1908eb6e6d8", BigInt(100*PRECISE_UNIT));
-    //         console.log(rentalPrice);
-    //     } catch (e) {
-    //         if (e != null) {
-    //             console.log(e);
-    //             console.log("Error when getting price data");
-    //         }
-    //         expect(e == null, "error %v", e);
-    //     }            
-    // });
+            //check pool reserves
+            WETHPool = await new ethers.Contract(poolAddr, rentPoolABI, account);
+            let newReserve = await WETHPool.getReserves()
+            expect(ethers.utils.parseEther('1') == newReserve, "FUNDS NOT SENT TO POOL");
+            console.log("ACCT LP BALANCE", await WETHPool.balanceOf(account.address));
+            //TODO: try approving smt 
+            await WETHPool.approve(router.address, ethers.utils.parseEther('1'));
+            await router.removeLiquidityETH(ethers.utils.parseEther('0.1'), ethers.utils.parseEther('0'),ethers.utils.parseEther('0'), account.address, ethers.BigNumber.from(deadline));
+            expect(await provider.getBalance(account.address) == origBal-ethers.utils.parseEther('0.01')+ethers.utils.parseEther('0.0000001') ,  "FUNDS NOT RETURNED TO SENDER");
 
-
-    // it("should be able to add and remove ETH liquidity", async() => {
-
-    //     try {
-    //         blockNumber = await provider.getBlockNumber();
-    //         block = await provider.getBlock(blockNumber);
-    //         timestamp = block.timestamp;
-    //         const deadline = timestamp + 864000
-    //         const origBal = await provider.getBalance(account.address)
-    //         poolAddr = await rentPoolFactory.getPool(WETH.address);
-    //         expect(poolAddr == "0x0000000000000000000000000000000000000000", "POOL ADDR NOT 0");
-    //         await router.addLiquidityETH(ethers.utils.parseEther('10'), ethers.utils.parseEther('0'), account.address, ethers.BigNumber.from(deadline),{ value: ethers.utils.parseEther('11') });
-    //         poolAddr = await rentPoolFactory.getPool(WETH.address);
-
-    //         //check token balance of user
-    //         expect(await provider.getBalance(account.address) == (origBal-ethers.utils.parseEther('10')),  "FUNDS NOT TAKEN FROM SENDER");
-            
-    //         //add liquidity
-
-    //         //check pool reserves
-    //         WETHPool = await new ethers.Contract(poolAddr, rentPoolABI, account);
-    //         let newReserve = await WETHPool.getReserves()
-    //         expect(ethers.utils.parseEther('1') == newReserve, "FUNDS NOT SENT TO POOL");
-    //         console.log("ACCT LP BALANCE", await WETHPool.balanceOf(account.address));
-    //         //TODO: try approving smt 
-    //         await WETHPool.approve(router.address, ethers.utils.parseEther('1'));
-    //         await router.removeLiquidityETH(ethers.utils.parseEther('0.1'), ethers.utils.parseEther('0'),ethers.utils.parseEther('0'), account.address, ethers.BigNumber.from(deadline));
-    //         expect(await provider.getBalance(account.address) == origBal-ethers.utils.parseEther('0.01')+ethers.utils.parseEther('0.0000001') ,  "FUNDS NOT RETURNED TO SENDER");
-
-    //     } catch (e) {
-    //         if (e != null) {
-    //             console.log(e);
-    //             console.log("Error when working with pool liquidity");
-    //         }
-    //         expect(e == null, "error %v", e);
-    //     }
+        } catch (e) {
+            if (e != null) {
+                console.log(e);
+                console.log("Error when working with pool liquidity");
+            }
+            expect(e == null, "error %v", e);
+        }
           
 
-    // });
+    });
 
         
         

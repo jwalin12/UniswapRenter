@@ -1,5 +1,7 @@
 pragma solidity >=0.5.0;
 
+import "../abstract/IRentPlatform.sol";
+
 
 interface IRentRouter01 {
 
@@ -43,6 +45,8 @@ interface IRentRouter01 {
         uint deadline,
         bool approveMax, uint8 v, bytes32 r, bytes32 s
     ) external returns (uint amountTokensRecieved, uint feesRecieved);
+
+    function quoteRental(IRentPlatform.BuyRentalParams memory params) external returns (uint256 rentalPrice);
 
     function removeLiquidityETHWithPermitSupportingFeeOnTransferTokens(
         uint amount,
