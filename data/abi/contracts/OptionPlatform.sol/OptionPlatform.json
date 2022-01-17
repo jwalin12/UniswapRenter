@@ -29,16 +29,16 @@
     "type": "function"
   },
   {
-    "inputs": [],
-    "name": "_owner",
-    "outputs": [
+    "inputs": [
       {
-        "internalType": "address",
-        "name": "",
-        "type": "address"
+        "internalType": "uint256",
+        "name": "tokenId",
+        "type": "uint256"
       }
     ],
-    "stateMutability": "view",
+    "name": "buyOption",
+    "outputs": [],
+    "stateMutability": "payable",
     "type": "function"
   },
   {
@@ -58,6 +58,57 @@
     "inputs": [
       {
         "internalType": "uint256",
+        "name": "tokenId",
+        "type": "uint256"
+      },
+      {
+        "internalType": "uint256",
+        "name": "newpremium",
+        "type": "uint256"
+      }
+    ],
+    "name": "changeOptionPremium",
+    "outputs": [],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "uint256",
+        "name": "tokenId",
+        "type": "uint256"
+      },
+      {
+        "internalType": "uint256",
+        "name": "premium",
+        "type": "uint256"
+      },
+      {
+        "internalType": "uint256",
+        "name": "duration",
+        "type": "uint256"
+      },
+      {
+        "internalType": "uint128",
+        "name": "percentage",
+        "type": "uint128"
+      },
+      {
+        "internalType": "address",
+        "name": "tokenLong",
+        "type": "address"
+      }
+    ],
+    "name": "createLongOption",
+    "outputs": [],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "uint256",
         "name": "amount",
         "type": "uint256"
       }
@@ -65,6 +116,19 @@
     "name": "deposit",
     "outputs": [],
     "stateMutability": "payable",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "uint256",
+        "name": "tokenId",
+        "type": "uint256"
+      }
+    ],
+    "name": "exerciseOption",
+    "outputs": [],
+    "stateMutability": "nonpayable",
     "type": "function"
   },
   {
@@ -88,7 +152,26 @@
         "type": "uint256"
       }
     ],
-    "name": "itemIdToRentInfo",
+    "name": "itemIdToIndex",
+    "outputs": [
+      {
+        "internalType": "uint256",
+        "name": "",
+        "type": "uint256"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "uint256",
+        "name": "",
+        "type": "uint256"
+      }
+    ],
+    "name": "itemIdToOptionInfo",
     "outputs": [
       {
         "internalType": "address payable",
@@ -97,7 +180,17 @@
       },
       {
         "internalType": "address payable",
-        "name": "renter",
+        "name": "currentOwner",
+        "type": "address"
+      },
+      {
+        "internalType": "address",
+        "name": "tokenLong",
+        "type": "address"
+      },
+      {
+        "internalType": "address",
+        "name": "paymentToken",
         "type": "address"
       },
       {
@@ -107,18 +200,33 @@
       },
       {
         "internalType": "uint256",
-        "name": "price",
+        "name": "costToExercise",
         "type": "uint256"
       },
       {
         "internalType": "uint256",
-        "name": "duration",
+        "name": "premium",
+        "type": "uint256"
+      },
+      {
+        "internalType": "uint256",
+        "name": "optionPayout",
+        "type": "uint256"
+      },
+      {
+        "internalType": "uint256",
+        "name": "amountToReturn",
         "type": "uint256"
       },
       {
         "internalType": "uint256",
         "name": "expiryDate",
         "type": "uint256"
+      },
+      {
+        "internalType": "bool",
+        "name": "forSale",
+        "type": "bool"
       }
     ],
     "stateMutability": "view",
@@ -157,19 +265,6 @@
       }
     ],
     "name": "itemIds",
-    "outputs": [
-      {
-        "internalType": "uint256",
-        "name": "",
-        "type": "uint256"
-      }
-    ],
-    "stateMutability": "view",
-    "type": "function"
-  },
-  {
-    "inputs": [],
-    "name": "marketplaceFee",
     "outputs": [
       {
         "internalType": "uint256",
@@ -239,19 +334,9 @@
         "internalType": "uint256",
         "name": "tokenId",
         "type": "uint256"
-      },
-      {
-        "internalType": "uint256",
-        "name": "price",
-        "type": "uint256"
-      },
-      {
-        "internalType": "uint256",
-        "name": "duration",
-        "type": "uint256"
       }
     ],
-    "name": "putUpNFTForRent",
+    "name": "putUpOptionForSale",
     "outputs": [],
     "stateMutability": "nonpayable",
     "type": "function"
@@ -264,7 +349,7 @@
         "type": "uint256"
       }
     ],
-    "name": "removeNFTForRent",
+    "name": "removeOptionForSale",
     "outputs": [],
     "stateMutability": "nonpayable",
     "type": "function"
@@ -277,20 +362,7 @@
         "type": "uint256"
       }
     ],
-    "name": "rentNFT",
-    "outputs": [],
-    "stateMutability": "payable",
-    "type": "function"
-  },
-  {
-    "inputs": [
-      {
-        "internalType": "uint256",
-        "name": "tokenId",
-        "type": "uint256"
-      }
-    ],
-    "name": "returnNFTToOwner",
+    "name": "returnToOriginalOwner",
     "outputs": [],
     "stateMutability": "nonpayable",
     "type": "function"
@@ -311,6 +383,13 @@
   {
     "inputs": [],
     "name": "withdraw",
+    "outputs": [],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "inputs": [],
+    "name": "withdrawAllTokens",
     "outputs": [],
     "stateMutability": "nonpayable",
     "type": "function"
