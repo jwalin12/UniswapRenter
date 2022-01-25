@@ -1,0 +1,117 @@
+[
+  {
+    "inputs": [
+      {
+        "internalType": "address",
+        "name": "_owner",
+        "type": "address"
+      },
+      {
+        "internalType": "int256",
+        "name": "_riskFreeRate",
+        "type": "int256"
+      },
+      {
+        "internalType": "address",
+        "name": "testAddr",
+        "type": "address"
+      },
+      {
+        "internalType": "uint256",
+        "name": "testVol",
+        "type": "uint256"
+      }
+    ],
+    "stateMutability": "nonpayable",
+    "type": "constructor"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "address",
+        "name": "newUser",
+        "type": "address"
+      }
+    ],
+    "name": "addAuthorizedUser",
+    "outputs": [],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "inputs": [],
+    "name": "getRiskFreeRate",
+    "outputs": [
+      {
+        "internalType": "int256",
+        "name": "",
+        "type": "int256"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "address",
+        "name": "poolAddr",
+        "type": "address"
+      }
+    ],
+    "name": "getVol",
+    "outputs": [
+      {
+        "internalType": "uint256",
+        "name": "",
+        "type": "uint256"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "address",
+        "name": "userToRemove",
+        "type": "address"
+      }
+    ],
+    "name": "removeAuthorizedUser",
+    "outputs": [],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "address",
+        "name": "poolAddr",
+        "type": "address"
+      },
+      {
+        "internalType": "uint256",
+        "name": "newVol",
+        "type": "uint256"
+      }
+    ],
+    "name": "setPoolAddressToVol",
+    "outputs": [],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "int256",
+        "name": "newRate",
+        "type": "int256"
+      }
+    ],
+    "name": "setRiskFreeRate",
+    "outputs": [],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  }
+]

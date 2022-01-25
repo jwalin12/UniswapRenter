@@ -49,6 +49,12 @@ coverage
 coverage.json
 typechain
 
+
+
 #Hardhat files
+hardhat-dependency-compiler
 cache
 artifacts
+
+#config file(holds private key)
+hardhat.config.ts
