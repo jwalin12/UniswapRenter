@@ -263,6 +263,13 @@ contract CaravanRentRouter01 is IRentRouter01 {
         if (premiumFee > 0) TransferHelper.safeTransferETH(feeTo, price * premiumFee/10000);
 
     }
+
+    function createPool(address token) external {
+        require(IRentPoolFactory(factory).getPool(token) == address(0), "pool already exists");
+        IRentPoolFactory(factory).createPool(token);
+
+
+    }
     
     // **** ADD LIQUIDITY ****
     function _addLiquidity(
