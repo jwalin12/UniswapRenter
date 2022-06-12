@@ -2,6 +2,8 @@
 ethers = require('hardhat');
 const PRECISE_UNIT = 1e18;
 const FACTORY_ADDRESS = "0x1F98431c8aD98523631AE4a59f267346ea31F984";
+const WETH_ADDRESS_RINKEBY = "0xc778417E063141139Fce010982780140Aa0cD5Ab"
+const WETH_ADDRESS_MAINNET = "0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2"
 
 async function main() {
   const [account] = await ethers.ethers.getSigners();
@@ -30,7 +32,7 @@ async function main() {
   console.log("rent escrow deployed to:", rentalEscrow.address);
   await rentalEscrow.setAutomatedRentalPlatform(rentalPlatform.address);
   await rentalPlatform.setRentalEscrow(rentalEscrow.address);
-  router = await Router.deploy(rentPoolFactory.address,"0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2",greekCache.address, blackScholes.address, rentalPlatform.address, FACTORY_ADDRESS, account.address, account.address, 0);
+  router = await Router.deploy(rentPoolFactory.address, WETH_ADDRESS_RINKEBY, greekCache.address, blackScholes.address, rentalPlatform.address, FACTORY_ADDRESS, account.address, account.address, 0);
   console.log("Router contract deployed to:", router.address);
   }
   

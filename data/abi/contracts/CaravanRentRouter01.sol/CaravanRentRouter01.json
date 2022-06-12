@@ -51,19 +51,6 @@
     "type": "constructor"
   },
   {
-    "anonymous": false,
-    "inputs": [
-      {
-        "indexed": false,
-        "internalType": "uint256",
-        "name": "price",
-        "type": "uint256"
-      }
-    ],
-    "name": "RentalPrice",
-    "type": "event"
-  },
-  {
     "inputs": [],
     "name": "WETH",
     "outputs": [
@@ -225,6 +212,19 @@
     "type": "function"
   },
   {
+    "inputs": [
+      {
+        "internalType": "address",
+        "name": "token",
+        "type": "address"
+      }
+    ],
+    "name": "createPool",
+    "outputs": [],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
     "inputs": [],
     "name": "factory",
     "outputs": [
@@ -338,7 +338,7 @@
     "outputs": [
       {
         "internalType": "uint256",
-        "name": "",
+        "name": "rentalPrice",
         "type": "uint256"
       }
     ],

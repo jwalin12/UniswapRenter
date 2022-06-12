@@ -29,7 +29,7 @@ contract CaravanRentRouter01 is IRentRouter01 {
     using SignedSafeMath for int;
     using SignedSafeDecimalMath for int;
 
-    /// @dev Internally this library uses 27 decimals of precision
+    /// @dev Internally this library uses 18 decimals of precision
     uint private constant PRECISE_UNIT = 1e18;
 
     address public immutable factory;
@@ -64,8 +64,6 @@ contract CaravanRentRouter01 is IRentRouter01 {
         uint160 sqrtRatioUpperX96;
         uint160 sqrtRatioLowerX96;
     }
-
-    event RentalPrice(uint price);
 
     modifier ensure(uint deadline) {
         require(deadline >= block.timestamp, 'RentRouter: EXPIRED');
@@ -121,9 +119,45 @@ contract CaravanRentRouter01 is IRentRouter01 {
                 : FullMath.mulDiv(1 << 128, baseAmount, ratioX128);
         }
     }
-   
-    function getRentalPrice(SqrtRatios memory ratios, IRentPlatform.BuyRentalParams memory params, address poolAddress) public view returns (uint256) {
 
+    function getPriceInEth(uint quote, address quotedIn, uint quotedInDecimals, uint24 fee) internal view returns (uint256) {
+        // returns the price of quote in terms of ETH (WETH). Possible values of fee are 100, 500, 3000, 10000 = 0.01%, 0.05%, 0.3%, 1%
+
+        if (quotedIn == WETH) {
+            // If it's already quoted in ETH, nothing to do
+            return quote;
+        }
+
+        address ethPoolAddress = uniswapV3Factory.getPool(WETH, quotedIn, fee);
+        require(ethPoolAddress != address(0), "getPriceInEth: UNISWAP POOL DOES NOT EXIST");
+
+        // slot0() returns price of token0 in terms of token1. We want token1 to be WETH and token0 to be params.token1
+        // For this to be the case, token0 < WETH must be true
+        // Otherwise, this will give us the reciprocal of what we want
+        (uint160 sqrtRatioX96, , , , , , )  = IUniswapV3Pool(ethPoolAddress).slot0();
+        
+        if (quotedIn > WETH) {
+            // then sqrtRatioX96 is the "reciprocal" of what we want
+            // PRECISE_UNIT / sqrtRatioX96 gives us a decimal
+            // Multiply by PRECISE_UNIT again to get it as an int with our desired floating point precision
+            sqrtRatioX96 = uint160(FullMath.mulDiv(PRECISE_UNIT, PRECISE_UNIT, sqrtRatioX96));
+        }
+
+        //now we can safely assume sqrtRatioX96 is the price of quotedIn in terms of WETH
+        //now get the actual ratio by squaring the sqrtRatio
+        uint token1PriceInEth = sqrtRatioToRatio(sqrtRatioX96, uint128(quotedInDecimals), quotedIn, WETH);
+        
+        //the following line is unnecessary since PRECISE_UNIT == ethDecimals which is 1e18
+        //token1PriceInEth = FullMath.mulDiv(PRECISE_UNIT, token1PriceInEth, ethDecimals);
+
+        //Now that we calculated the conversion rate, do the conversion
+        //Assume quote has precision of PRECISE_UNIT decimals and is priced in units of quotedIn
+        //We scale by the amount of Eth per unit of quotedIn
+        return FullMath.mulDiv(quote, token1PriceInEth, PRECISE_UNIT);
+    }
+   
+    function getRentalPrice(SqrtRatios memory ratios, IRentPlatform.BuyRentalParams memory params, address poolAddress) public view returns (uint256 rentalPrice) {
+        // returns the price of a rental with the given params in terms of ETH
         uint256 amountToken0 = params.amount0Desired;
         uint256 amountToken1 = params.amount1Desired;
 
@@ -149,7 +183,8 @@ contract CaravanRentRouter01 is IRentRouter01 {
         }
         //option price is denominated in token1 and is scaled by amount of token0
         //since its denominated in token1, need to divide by token1 decimals to get actual number
-        //and need to multiply by price of token1 in USD to get rental price in USD
+        //and need to multiply by price of token1 in USD to get rental price in USD 
+        //(or multiply by price of token1 in ETH to get price in eth)
         //since price is per unit (of token0), need to scale by amount of token0 to get total price
         //depending on whether ratio of token1/token0 is above mid or below mid, price as a call or a put
         IBlackScholes.PricesDeltaStdVega memory optionPrices;
@@ -163,7 +198,7 @@ contract CaravanRentRouter01 is IRentRouter01 {
                     price.ratioLower,
                     optionGreekCache.getRiskFreeRate()
                 );
-            return FullMath.mulDiv(optionPrices.callPrice, amountToken0, price.token0Decimals);
+            rentalPrice = FullMath.mulDiv(optionPrices.callPrice, amountToken0, price.token0Decimals);
         } else {
             optionPrices = 
                 blackScholes.pricesDeltaStdVega(
@@ -173,8 +208,10 @@ contract CaravanRentRouter01 is IRentRouter01 {
                     price.ratioUpper,
                     optionGreekCache.getRiskFreeRate()
                 );
-            return FullMath.mulDiv(optionPrices.putPrice, amountToken0, price.token0Decimals);
+            rentalPrice = FullMath.mulDiv(optionPrices.putPrice, amountToken0, price.token0Decimals);
         }
+        // for now, hardcoding this to use a pool fee of 0.3% for the quote 
+        rentalPrice = getPriceInEth(rentalPrice, price.uniswapPool.token1(), price.token1Decimals, 3000);
     }
 
     function getSqrtRatios(IRentPlatform.BuyRentalParams memory params, address poolAddress) public view returns (SqrtRatios memory) {
@@ -186,7 +223,7 @@ contract CaravanRentRouter01 is IRentRouter01 {
             sqrtRatioLowerX96: sqrtRatioLowerX96,
             sqrtRatioUpperX96: sqrtRatioUpperX96
         });
-
+        // Assumes pool.slot0() is the price of token0 in terms of token1
     }
 
     function quoteRental(IRentPlatform.BuyRentalParams memory params) external override view returns (uint256 rentalPrice) {
@@ -197,7 +234,7 @@ contract CaravanRentRouter01 is IRentRouter01 {
         //create rental on existing rent platform
        
         address poolAddress = uniswapV3Factory.getPool(params.token0, params.token1, params.fee);
-        require(poolAddress != address(0), "UNISWAP POOL DOES NOT EXIST");
+        require(poolAddress != address(0), "quoteRental: UNISWAP POOL DOES NOT EXIST");
         SqrtRatios memory sqrtRatios = getSqrtRatios(params, poolAddress);
         
         //ticks must be within max and min tick. Could switch this to require if u want
@@ -210,7 +247,6 @@ contract CaravanRentRouter01 is IRentRouter01 {
 
         (params.amount0Desired, params.amount1Desired) = LiquidityAmounts.getAmountsForLiquidity(sqrtRatios.sqrtRatioX96, sqrtRatios.sqrtRatioLowerX96, sqrtRatios.sqrtRatioUpperX96, LiquidityAmounts.getLiquidityForAmounts(sqrtRatios.sqrtRatioX96,  sqrtRatios.sqrtRatioLowerX96, sqrtRatios.sqrtRatioUpperX96, params.amount0Desired, params.amount1Desired));
         rentalPrice = getRentalPrice(sqrtRatios, params, poolAddress);
-        // emit RentalPrice(rentalPrice);
     }
 
     function buyRental(IRentPlatform.BuyRentalParams memory params) external payable {
@@ -224,7 +260,7 @@ contract CaravanRentRouter01 is IRentRouter01 {
         //check if price is right (call get price) and compare to slippage tolerance
         //create rental on existing rent platform
         address poolAddress = uniswapV3Factory.getPool(params.token0, params.token1, params.fee);
-        require(poolAddress != address(0), "UNISWAP POOL DOES NOT EXIST");
+        require(poolAddress != address(0), "buyRental: UNISWAP POOL DOES NOT EXIST");
         SqrtRatios memory sqrtRatios = getSqrtRatios(params, poolAddress);
         
         //ticks must be within max and min tick. Could switch this to require if u want
