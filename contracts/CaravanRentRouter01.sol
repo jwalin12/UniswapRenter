@@ -31,6 +31,7 @@ contract CaravanRentRouter01 is IRentRouter01 {
 
     /// @dev Internally this library uses 18 decimals of precision
     uint private constant PRECISE_UNIT = 1e18;
+    uint minRentalPrice = 1e16; // add 0.01 ETH to price of every rental
 
     address public immutable factory;
     address public immutable WETH;
@@ -40,7 +41,7 @@ contract CaravanRentRouter01 is IRentRouter01 {
     IUniswapV3Factory private immutable uniswapV3Factory;
     IRentPlatform private immutable rentPlatform;
     uint32[] private observationRange = new uint32[](2);
-    uint256 premiumFee; 
+    uint256 premiumFee;
     address feeTo;
     address feeToSetter;
 
@@ -105,6 +106,11 @@ contract CaravanRentRouter01 is IRentRouter01 {
 
     }
 
+    function setMinRentalPrice(uint256 newPrice) external {
+        require(msg.sender == feeToSetter, "UNAUTHORIZED");
+        minRentalPrice = newPrice;
+    }
+
     function sqrtRatioToRatio(uint160 sqrtRatioX96, uint128 baseAmount, address baseToken, address quoteToken) internal pure returns (uint256 quoteAmount) {
         // Calculate quoteAmount with better precision if it doesn't overflow when multiplied by itself
         if (sqrtRatioX96 <= type(uint128).max) {
@@ -122,11 +128,12 @@ contract CaravanRentRouter01 is IRentRouter01 {
 
     function getPriceInEth(uint quote, address quotedIn, uint quotedInDecimals, uint24 fee) internal view returns (uint256) {
         // returns the price of quote in terms of ETH (WETH). Possible values of fee are 100, 500, 3000, 10000 = 0.01%, 0.05%, 0.3%, 1%
+        // TODO: returns min(minRentalPrice, quoteInEth)
 
         if (quotedIn == WETH) {
             // If it's already quoted in ETH, nothing to do
-            return quote;
-        }
+            return quote >= minRentalPrice ? quote : minRentalPrice;
+        } 
 
         address ethPoolAddress = uniswapV3Factory.getPool(WETH, quotedIn, fee);
         require(ethPoolAddress != address(0), "getPriceInEth: UNISWAP POOL DOES NOT EXIST");
@@ -153,7 +160,8 @@ contract CaravanRentRouter01 is IRentRouter01 {
         //Now that we calculated the conversion rate, do the conversion
         //Assume quote has precision of PRECISE_UNIT decimals and is priced in units of quotedIn
         //We scale by the amount of Eth per unit of quotedIn
-        return FullMath.mulDiv(quote, token1PriceInEth, PRECISE_UNIT);
+        uint result = FullMath.mulDiv(quote, token1PriceInEth, PRECISE_UNIT);
+        return result >= minRentalPrice ? result : minRentalPrice;
     }
    
     function getRentalPrice(SqrtRatios memory ratios, IRentPlatform.BuyRentalParams memory params, address poolAddress) public view returns (uint256 rentalPrice) {
