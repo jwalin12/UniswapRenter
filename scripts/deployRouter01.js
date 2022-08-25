@@ -33,6 +33,7 @@ async function main() {
   await rentalEscrow.setAutomatedRentalPlatform(rentalPlatform.address);
   await rentalPlatform.setRentalEscrow(rentalEscrow.address);
   router = await Router.deploy(rentPoolFactory.address, WETH_ADDRESS_RINKEBY, greekCache.address, blackScholes.address, rentalPlatform.address, FACTORY_ADDRESS, account.address, account.address, 0);
+  await rentPoolFactory.setApprovedLiquidityManager(router.address)
   console.log("Router contract deployed to:", router.address);
   }
   

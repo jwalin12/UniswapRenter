@@ -50,6 +50,7 @@ contract RentPoolFactory is IRentPoolFactory {
 
     constructor(address feeToSetter) public {
         _feeToSetter = feeToSetter;
+        _approvedLiqudityManager = msg.sender; // someone could front run the call to setApprovedLiquidityManager after we deploy this contract but before router finishes deploying. bad security practice.
     }
 
     function allPoolsLength() override external view returns (uint) {
