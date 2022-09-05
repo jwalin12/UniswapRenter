@@ -104,6 +104,8 @@ contract AutomatedRentPlatform is IRentPlatform  {
     }
 
     function collectFeesForRenter(uint256 tokenId, uint256 token0Min, uint256 token1Min) external override returns (uint256, uint256) {
+        (, address renter, , ,) = IAutomatedRentalEscrow(_rentalEscrow).tokenIdToRentInfo(tokenId);
+        require(msg.sender == renter, "UNAUTHORIZED RENTER");
         (uint256 token0Amt, uint256 token1Amt) = IAutomatedRentalEscrow(_rentalEscrow).collectFeesForCurrentRenter(tokenId);
         require(token0Amt >= token0Min && token1Amt >= token1Min, "NOT ENOUGH FEES COLLECTED");
         return (token0Amt, token1Amt);
@@ -117,8 +119,12 @@ contract AutomatedRentPlatform is IRentPlatform  {
 
     function getRentalInfoParams(uint256 tokenId) external override view returns (address payable, address payable,uint256, uint256, address) {
         return IAutomatedRentalEscrow(_rentalEscrow).tokenIdToRentInfo(tokenId);
-
-
     }
 
+    /**
+    Returns array of all item Ids
+     */
+    function getRentalsInProgress() external override view returns (uint256[] memory) {
+        return rentalsInProgress;
+    }
 }

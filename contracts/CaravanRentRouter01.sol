@@ -468,7 +468,7 @@ contract CaravanRentRouter01 is IRentRouter01 {
         );
     }
 
-
-
-
+    function getRentalsInProgress() external view returns (uint256[] memory) {
+        return rentPlatform.getRentalsInProgress();
+    }
 }

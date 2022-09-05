@@ -37,6 +37,7 @@ abstract contract IRentPlatform {
 
     function collectFeesForRenter(uint256 tokenId, uint256 token0Min, uint256 token1Min) virtual external returns (uint256, uint256);
      
-   function getRentalInfoParams(uint256 tokenId) virtual external returns (address payable, address payable,uint256, uint256, address);
+    function getRentalInfoParams(uint256 tokenId) virtual external returns (address payable, address payable,uint256, uint256, address);
 
+    function getRentalsInProgress() virtual external view returns (uint256[] memory);
 }
